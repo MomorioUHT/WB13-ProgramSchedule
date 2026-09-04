@@ -1758,6 +1758,60 @@
             margin-top: 2px;
         }
 
+        /* Live View Stats — "now" button for time filter */
+        .vs-now-btn {
+            padding: 6px 10px;
+            font-size: 11px;
+            font-weight: 700;
+            font-family: inherit;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            color: var(--accent-secondary);
+            background: rgba(14, 165, 233, 0.12);
+            border: 1px solid rgba(14, 165, 233, 0.35);
+            transition: var(--transition);
+        }
+
+        .vs-now-btn:hover {
+            background: rgba(14, 165, 233, 0.25);
+            color: #ffffff;
+        }
+
+        /* Live View Stats — charts row above the raw data table */
+        .vs-charts-row {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .vs-charts-row[hidden] {
+            display: none;
+        }
+
+        .vs-chart-box {
+            flex: 1 1 380px;
+            min-width: 0;
+            background: rgba(0, 0, 0, 0.22);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 14px 16px;
+        }
+
+        .vs-chart-title {
+            font-size: 12.5px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 10px;
+        }
+
+        .vs-chart-canvas-wrap {
+            position: relative;
+            height: 360px;
+            width: 100%;
+        }
+
         @media (max-width: 640px) {
             .page-nav { width: 100%; }
             .page-nav-btn { flex: 1; justify-content: center; }
@@ -2066,8 +2120,12 @@
                     <span class="vs-divider"></span>
                     <span class="vs-date-wrap">เวลาออกอากาศ
                         <input type="time" id="vsTimeFrom" onchange="vsRender()">
+                        <button type="button" class="vs-now-btn" onclick="setVsTimeNow('from')"
+                            title="ใช้เวลาปัจจุบัน">⏱ now</button>
                         <span>–</span>
                         <input type="time" id="vsTimeTo" onchange="vsRender()">
+                        <button type="button" class="vs-now-btn" onclick="setVsTimeNow('to')"
+                            title="ใช้เวลาปัจจุบัน">⏱ now</button>
                     </span>
                     <button class="vs-chip" onclick="clearVsTimeRange()"
                         style="padding:6px 12px;font-size:11px;">ล้างช่วงเวลา</button>
@@ -2085,6 +2143,31 @@
                     <button class="vs-chip plat active" data-platform="youtube" onclick="toggleVsPlatform('youtube', this)">Youtube</button>
                     <button class="vs-chip plat active" data-platform="x" onclick="toggleVsPlatform('x', this)">X</button>
                     <button class="vs-chip plat active" data-platform="tiktok" onclick="toggleVsPlatform('tiktok', this)">TikTok</button>
+                </div>
+            </div>
+
+            <!-- Charts (above the raw data table) -->
+            <div class="vs-panel" id="vsChartsPanel" hidden>
+                <div class="vs-panel-head" style="flex-wrap:wrap;">
+                    <span class="vs-panel-title">ภาพรวมยอดวิว ณ ช่วงเวลาที่เลือก</span>
+                    <span class="vs-hint" id="vsChartsHint">—</span>
+                </div>
+                <div class="vs-charts-row">
+                    <div class="vs-chart-box">
+                        <div class="vs-chart-title">ยอดวิวสูงสุดรายรายการ (Top 15)</div>
+                        <div class="vs-chart-canvas-wrap">
+                            <canvas id="vsTopProgramsChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="vs-chart-box">
+                        <div class="vs-chart-title">ส่วนแบ่งยอดวิวตามสถานี</div>
+                        <div class="vs-chart-canvas-wrap">
+                            <canvas id="vsChannelShareChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div id="vsChartsEmpty" class="vs-state" hidden style="padding:20px;">
+                    ไม่มีข้อมูลยอดวิวสำหรับสร้างกราฟในช่วงที่เลือก
                 </div>
             </div>
 
@@ -3696,6 +3779,48 @@
         let vsSortKey = 'air';   // 'title' | 'air' | 'platform' | 'views' | 'peak'
         let vsSortDir = 'asc';   // 'asc' | 'desc'
 
+        // Chart instances สำหรับหน้า Live View Stats
+        let vsTopProgramsChartInstance = null;
+        let vsChannelShareChartInstance = null;
+
+        // จานสีสำหรับกราฟ (แต่ละสำนักข่าวได้สีของตัวเอง — ใช้ร่วมกันทั้งกราฟแท่งและกราฟวงกลม)
+        const VS_CHART_PALETTE = [
+            '#6366f1', '#0ea5e9', '#10b981', '#f59e0b', '#ec4899',
+            '#a855f7', '#ef4444', '#14b8a6', '#f97316', '#8b5cf6',
+            '#22c55e', '#eab308', '#3b82f6', '#d946ef', '#84cc16',
+            '#06b6d4', '#fb7185', '#a3e635', '#c084fc', '#2dd4bf',
+            '#fbbf24', '#f472b6', '#60a5fa', '#4ade80',
+            '#e879f9', '#38bdf8', '#facc15', '#fca5a5'
+        ];
+
+        // สีประจำสำนักข่าว (คงที่ตลอด session) — สร้างครั้งเดียวหลังโหลดข้อมูล
+        const VS_THAIPBS_COLOR = '#E95A0A';
+        let vsChannelColorMap = new Map();
+
+        function vsBuildChannelColorMap() {
+            const channels = Array.from(new Set(vsRawRows.map(r => r.channel).filter(Boolean)))
+                .sort((a, b) => a.localeCompare(b, 'th'));
+            vsChannelColorMap = new Map();
+            let p = 0;
+            channels.forEach(ch => {
+                if (isThaiPbs(ch)) {
+                    vsChannelColorMap.set(ch, VS_THAIPBS_COLOR);
+                } else {
+                    vsChannelColorMap.set(ch, VS_CHART_PALETTE[p % VS_CHART_PALETTE.length]);
+                    p++;
+                }
+            });
+        }
+
+        function vsChannelColor(ch) {
+            if (isThaiPbs(ch)) return VS_THAIPBS_COLOR;
+            if (vsChannelColorMap.has(ch)) return vsChannelColorMap.get(ch);
+            // สำรอง: hash ชื่อช่องเป็นดัชนีสี
+            let h = 0;
+            for (let i = 0; i < String(ch).length; i++) h = (h * 31 + ch.charCodeAt(i)) >>> 0;
+            return VS_CHART_PALETTE[h % VS_CHART_PALETTE.length];
+        }
+
         const VS_PLATFORM_LABEL = { facebook: 'Facebook', youtube: 'YouTube', x: 'X', tiktok: 'TikTok' };
 
         // ค่า default การเรียงของแต่ละคอลัมน์ (กดครั้งแรกให้ใช้ทิศนี้)
@@ -3793,6 +3918,7 @@
 
             vsRawRows = payload.data;
             vsLoaded = true;
+            vsBuildChannelColorMap();
             document.getElementById('vsLoading').hidden = true;
 
             const t = new Date();
@@ -3869,6 +3995,16 @@
         function clearVsTimeRange() {
             document.getElementById('vsTimeFrom').value = '';
             document.getElementById('vsTimeTo').value = '';
+            vsRender();
+        }
+
+        // ตั้งค่าช่องเวลา (from/to) ให้เป็นเวลาปัจจุบัน
+        function setVsTimeNow(which) {
+            const now = new Date();
+            const hhmm = String(now.getHours()).padStart(2, '0') + ':' +
+                String(now.getMinutes()).padStart(2, '0');
+            if (which !== 'to') document.getElementById('vsTimeFrom').value = hhmm;
+            if (which !== 'from') document.getElementById('vsTimeTo').value = hhmm;
             vsRender();
         }
 
@@ -4004,6 +4140,7 @@
             });
 
             vsUpdateSortHeaders();
+            vsRenderCharts(entries);
 
             const body = document.getElementById('vsTableBody');
             const wrap = document.getElementById('vsTableWrap');
@@ -4046,6 +4183,230 @@
                     <td>${link}</td>
                 </tr>`;
             }).join('');
+        }
+
+        /* ---- กราฟหน้า Live View Stats (วางเหนือตารางข้อมูลดิบ) ----
+           รับ entries ชุดเดียวกับตาราง (ผ่านตัวกรอง ช่อง / ช่วงวัน / ช่วงเวลาออกอากาศ /
+           แพลตฟอร์ม / คำค้น แล้ว) จากนั้นรวมยอดวิวเป็นราย "รายการ" โดยเอาค่าพีคสูงสุด
+           ข้ามแพลตฟอร์มของแต่ละรายการ                                                */
+        function vsRenderCharts(entries) {
+            const panel = document.getElementById('vsChartsPanel');
+            const emptyEl = document.getElementById('vsChartsEmpty');
+            const hintEl = document.getElementById('vsChartsHint');
+            const row = panel.querySelector('.vs-charts-row');
+
+            panel.hidden = false;
+
+            // เก็บเฉพาะรายการที่มียอดวิวจริง
+            const viewed = entries.filter(e => e.views !== null && e.views !== undefined && e.views > 0);
+
+            // รวมเป็นราย "รายการ" = ช่อง + ชื่อรายการ, ใช้ยอดพีคสูงสุดข้ามแพลตฟอร์ม
+            const progMap = new Map();
+            viewed.forEach(e => {
+                const key = e.channel + ' ┃ ' + e.title;
+                const cur = progMap.get(key) || { channel: e.channel, title: e.title, views: 0 };
+                cur.views = Math.max(cur.views, e.views);
+                progMap.set(key, cur);
+            });
+            const programs = Array.from(progMap.values());
+
+            if (vsTopProgramsChartInstance) { vsTopProgramsChartInstance.destroy(); vsTopProgramsChartInstance = null; }
+            if (vsChannelShareChartInstance) { vsChannelShareChartInstance.destroy(); vsChannelShareChartInstance = null; }
+
+            if (programs.length === 0) {
+                row.hidden = true;
+                emptyEl.hidden = false;
+                hintEl.textContent = '0 รายการที่มียอดวิว';
+                return;
+            }
+            row.hidden = false;
+            emptyEl.hidden = true;
+
+            // ---- plugin: ตัวเลขท้ายแท่ง (กราฟที่ 1) ----
+            const vsBarValuePlugin = {
+                id: 'vsBarValue',
+                afterDatasetsDraw(chart) {
+                    const { ctx, chartArea } = chart;
+                    const meta = chart.getDatasetMeta(0);
+                    ctx.save();
+                    ctx.font = '700 11px "Plus Jakarta Sans", sans-serif';
+                    ctx.textBaseline = 'middle';
+                    meta.data.forEach((bar, i) => {
+                        const val = chart.data.datasets[0].data[i];
+                        if (val == null) return;
+                        const txt = Number(val).toLocaleString('en-US');
+                        let x = bar.x + 6;
+                        if (x + ctx.measureText(txt).width > chartArea.right) {
+                            x = bar.x - 6;
+                            ctx.textAlign = 'right';
+                            ctx.fillStyle = '#ffffff';
+                        } else {
+                            ctx.textAlign = 'left';
+                            ctx.fillStyle = '#e5e7eb';
+                        }
+                        ctx.fillText(txt, x, bar.y);
+                    });
+                    ctx.restore();
+                }
+            };
+
+            // ---- plugin: % บนชิ้นพาย + ชี้ text ออกนอกเมื่อชิ้นเล็ก (กราฟที่ 2) ----
+            const vsPieLabelPlugin = {
+                id: 'vsPieLabel',
+                afterDatasetsDraw(chart) {
+                    const { ctx } = chart;
+                    const meta = chart.getDatasetMeta(0);
+                    const ds = chart.data.datasets[0];
+                    const total = ds.data.reduce((s, v) => s + (v || 0), 0);
+                    if (!total) return;
+                    ctx.save();
+                    ctx.font = '700 11px "Plus Jakarta Sans", sans-serif';
+                    meta.data.forEach((arc, i) => {
+                        const val = ds.data[i] || 0;
+                        const pct = val / total * 100;
+                        if (pct <= 0) return;
+                        const label = pct >= 10 ? Math.round(pct) + '%' : pct.toFixed(1) + '%';
+                        const mid = (arc.startAngle + arc.endAngle) / 2;
+                        const cos = Math.cos(mid), sin = Math.sin(mid);
+                        if (pct >= 6) {
+                            const r = (arc.innerRadius + arc.outerRadius) / 2;
+                            ctx.fillStyle = '#ffffff';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText(label, arc.x + cos * r, arc.y + sin * r);
+                        } else {
+                            const rOut = arc.outerRadius;
+                            const x1 = arc.x + cos * rOut;
+                            const y1 = arc.y + sin * rOut;
+                            const x2 = arc.x + cos * (rOut + 14);
+                            const y2 = arc.y + sin * (rOut + 14);
+                            const right = cos >= 0;
+                            ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+                            ctx.lineWidth = 1;
+                            ctx.beginPath();
+                            ctx.moveTo(x1, y1);
+                            ctx.lineTo(x2, y2);
+                            ctx.lineTo(x2 + (right ? 6 : -6), y2);
+                            ctx.stroke();
+                            ctx.fillStyle = '#cbd5e1';
+                            ctx.textAlign = right ? 'left' : 'right';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText(`${chart.data.labels[i]} ${label}`, x2 + (right ? 9 : -9), y2);
+                        }
+                    });
+                    ctx.restore();
+                }
+            };
+
+            const grandTotal = programs.reduce((s, p) => s + p.views, 0);
+            hintEl.textContent =
+                `${programs.length} รายการ • รวม ${grandTotal.toLocaleString('en-US')} วิว`;
+
+            /* ---------- กราฟที่ 1: แท่งแนวนอน ยอดวิวสูงสุดรายรายการ ---------- */
+            const topProgs = programs.slice().sort((a, b) => b.views - a.views).slice(0, 15);
+            const clip = (s, n) => (s && s.length > n ? s.slice(0, n - 1) + '…' : (s || ''));
+            vsTopProgramsChartInstance = new Chart(document.getElementById('vsTopProgramsChart'), {
+                type: 'bar',
+                data: {
+                    labels: topProgs.map(p => [clip(p.title, 34), clip(p.channel, 30)]),
+                    datasets: [{
+                        label: 'ยอดวิวสูงสุด',
+                        data: topProgs.map(p => p.views),
+                        backgroundColor: topProgs.map(p => vsChannelColor(p.channel)),
+                        borderColor: topProgs.map(p => vsChannelColor(p.channel)),
+                        borderWidth: 1,
+                        borderRadius: 5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    layout: { padding: { right: 52 } },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            grace: '8%',
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: {
+                                color: '#9ca3af',
+                                callback: v => Number(v).toLocaleString('en-US')
+                            }
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: {
+                                color: (c) => isThaiPbs(topProgs[c.index] && topProgs[c.index].channel) ? '#E95A0A' : '#9ca3af',
+                                font: { family: "'Plus Jakarta Sans', sans-serif", size: 11 }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                title: items => {
+                                    const p = topProgs[items[0].dataIndex];
+                                    return p.title + ' — ' + p.channel;
+                                },
+                                label: ctx => ' ' + Number(ctx.parsed.x).toLocaleString('en-US') + ' วิว'
+                            }
+                        }
+                    }
+                },
+                plugins: [vsBarValuePlugin]
+            });
+
+            /* ---------- กราฟที่ 2: วงกลม ส่วนแบ่งยอดวิวตามสถานี ---------- */
+            const chMap = new Map();
+            programs.forEach(p => chMap.set(p.channel, (chMap.get(p.channel) || 0) + p.views));
+            let chArr = Array.from(chMap.entries()).sort((a, b) => b[1] - a[1]);
+
+            // ยุบสถานีที่เกินอันดับ 10 รวมเป็น "อื่นๆ"
+            const MAX_SLICES = 10;
+            if (chArr.length > MAX_SLICES) {
+                const head = chArr.slice(0, MAX_SLICES - 1);
+                const restTotal = chArr.slice(MAX_SLICES - 1).reduce((s, x) => s + x[1], 0);
+                head.push(['อื่นๆ', restTotal]);
+                chArr = head;
+            }
+
+            const sliceColors = chArr.map(x =>
+                x[0] === 'อื่นๆ' ? '#4b5563' : vsChannelColor(x[0]));
+
+            vsChannelShareChartInstance = new Chart(document.getElementById('vsChannelShareChart'), {
+                type: 'pie',
+                data: {
+                    labels: chArr.map(x => x[0]),
+                    datasets: [{
+                        data: chArr.map(x => x[1]),
+                        backgroundColor: sliceColors,
+                        borderColor: 'rgba(11, 15, 25, 0.9)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: { padding: 30 },
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: { color: '#9ca3af', font: { size: 11 }, boxWidth: 12, padding: 8 }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => {
+                                    const val = ctx.parsed;
+                                    const pct = grandTotal ? (val / grandTotal * 100).toFixed(1) : '0.0';
+                                    return ` ${ctx.label}: ${val.toLocaleString('en-US')} วิว (${pct}%)`;
+                                }
+                            }
+                        }
+                    }
+                },
+                plugins: [vsPieLabelPlugin]
+            });
         }
 
         function escapeHtml(s) {
