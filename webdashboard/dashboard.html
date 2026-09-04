@@ -2125,12 +2125,6 @@
                 </div>
             </div>
         </div><!-- /#page-viewstats -->
-
-        <!-- Footer -->
-        <footer>
-            <p>Thai News Scraper Analytics Dashboard &bull; Live Google Sheets Integration &bull; Powered by Antigravity
-            </p>
-        </footer>
     </div>
 
     <!-- ======================================================= -->
@@ -3916,13 +3910,31 @@
             return true;
         }
 
-        const VS_THAI_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-            'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+        const VS_DT_SEP = '-'; // คั่นวันที่กับเวลา
 
-        function vsFormatDateThai(dateStr) {
+        // วันที่รูปแบบ dd/mm/yyyy
+        function vsFormatDate(dateStr) {
             const d = parseArticleDate(dateStr);
             if (!d) return dateStr || '';
-            return `${d.getDate()} ${VS_THAI_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+            const dd = String(d.getDate()).padStart(2, '0');
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            return `${dd}/${mm}/${d.getFullYear()}`;
+        }
+
+        // เวลารูปแบบ hh:mm:ss (เติม :00 ถ้ามาเป็น hh:mm, เติม 0 หน้าชั่วโมง)
+        function vsFormatTime(t) {
+            if (!t) return '';
+            const m = String(t).trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+            if (!m) return String(t).trim();
+            return `${m[1].padStart(2, '0')}:${m[2]}:${m[3] || '00'}`;
+        }
+
+        // รวมวันที่ + เวลา เป็น "dd/mm/yyyy ❘ hh:mm:ss"
+        function vsFormatDateTime(dateStr, timeStr) {
+            const d = vsFormatDate(dateStr);
+            const t = vsFormatTime(timeStr);
+            if (!d) return '';
+            return t ? `${d} ${VS_DT_SEP} ${t}` : d;
         }
 
         function vsRender() {
@@ -4011,18 +4023,18 @@
                 const views = e.views !== null ? e.views.toLocaleString('en-US') : '<span class="vs-muted">–</span>';
                 let when = '<span class="vs-muted">–</span>';
                 if (e.peakTime) {
-                    when = showDate ? `${vsFormatDateThai(e.date)} เวลา ${e.peakTime}` : e.peakTime;
+                    when = showDate ? escapeHtml(vsFormatDateTime(e.date, e.peakTime)) : escapeHtml(vsFormatTime(e.peakTime));
                 } else if (showDate) {
-                    when = vsFormatDateThai(e.date);
+                    when = escapeHtml(vsFormatDate(e.date));
                 }
                 const link = e.link
                     ? `<a class="vs-link" href="${e.link}" target="_blank" rel="noopener">${e.link}</a>`
                     : '<span class="vs-muted">ไม่มีลิงก์</span>';
 
-                const airDate = vsFormatDateThai(e.date);
+                const airDate = vsFormatDate(e.date);
                 let airDateTime = '<span class="vs-muted">–</span>';
                 if (airDate) {
-                    airDateTime = e.scheduleTime ? `${airDate} เวลา ${escapeHtml(e.scheduleTime)}` : airDate;
+                    airDateTime = escapeHtml(vsFormatDateTime(e.date, e.scheduleTime));
                 }
 
                 return `<tr>
