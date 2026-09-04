@@ -21,6 +21,7 @@ var VIEW_STATS_HEADERS = [
   'วันที่',
   'ช่อง',
   'ชื่อรายการ',
+  'หมวดหมู่',
   'เวลาเริ่มในผัง',
   'Facebook',
   'YouTube',
@@ -44,7 +45,7 @@ var START_ROW = 2;
 
 function doGet(e) {
   try {
-    // [ADDED] Live View Stats dashboard endpoint — อ่านชีท 'View Stats' ทั้ง 16 คอลัมน์ (อ่านอย่างเดียว)
+    // [ADDED] Live View Stats dashboard endpoint — อ่านชีท 'View Stats' ทั้ง 15 คอลัมน์ (อ่านอย่างเดียว)
     // รองรับ JSONP: ส่ง ?callback=fnName เพื่อเลี่ยงปัญหา CORS เมื่อเปิดไฟล์แบบ file://
     if (e && e.parameter && (e.parameter.action === 'view_stats' || e.parameter.action === 'get_view_stats')) {
       var vsPayload = buildViewStatsPayload_();
@@ -160,6 +161,14 @@ function doPost(e) {
     if (action === 'put') {
       result = putData(ss, req.sheet, req.data, req.corner);
       return jsonOut({ ok: true, action: action, result: result });
+    }
+
+    // 7. เขียนข้อมูลลงช่วงที่กำหนดโดยตรง (เช่น Backfill คอลัมน์หมวดหมู่)
+    if (action === 'set_range') {
+      var targetSh = req.sheet ? ss.getSheetByName(req.sheet) : ss.getActiveSheet();
+      if (!targetSh) throw new Error('sheet not found: ' + req.sheet);
+      targetSh.getRange(req.range).setValues(req.values);
+      return jsonOut({ ok: true, action: action, range: req.range, rows: req.values.length });
     }
 
     throw new Error('unknown action: ' + action);
@@ -333,11 +342,11 @@ function upsertViewStats_(ss, req) {
     sh.getRange(1, 1, 1, VIEW_STATS_HEADERS.length).setValues([VIEW_STATS_HEADERS]);
     sh.setFrozenRows(1);
     sh.getRange('A:A').setNumberFormat('@');
-    sh.getRange('D:D').setNumberFormat('@');
-    sh.getRange('I:I').setNumberFormat('@');
-    sh.getRange('K:K').setNumberFormat('@');
-    sh.getRange('M:M').setNumberFormat('@');
-    sh.getRange('O:O').setNumberFormat('@');
+    sh.getRange('E:E').setNumberFormat('@');
+    sh.getRange('J:J').setNumberFormat('@');
+    sh.getRange('L:L').setNumberFormat('@');
+    sh.getRange('N:N').setNumberFormat('@');
+    sh.getRange('P:P').setNumberFormat('@');
   }
 
   var rowsData = req.rows || (req.row ? [req.row] : []);
@@ -371,6 +380,7 @@ function upsertViewStats_(ss, req) {
     var r = rowsData[j];
     var rDate = normalizeDateStr_(r.date || '');
     var rTime = String(r.time || r.capture_time || r.capture_dt || '').trim();
+    var rGenre = String(r.genre || r.category || r.หมวดหมู่ || '').trim();
     var rScheduledTime = String(r.scheduled_time || r.schedule_time || r.program_time || r.time_in_schedule || '').trim();
     var rChannel = String(r.channel_name || r.channel || '').trim();
     var rTitle = String(r.broadcast_name || r.title || '').trim();
@@ -394,59 +404,65 @@ function upsertViewStats_(ss, req) {
       var targetRow = existingRows[rowIdx];
       var modified = false;
 
+      // อัปเดตหมวดหมู่หากมีข้อมูลและในชีทยังว่างหรือเป็น '-'
+      if (rGenre && (!targetRow[3] || targetRow[3] === '-')) {
+        targetRow[3] = rGenre;
+        modified = true;
+      }
+
       // อัปเดตเวลาเริ่มในผังหากมีข้อมูลและในชีทยังว่างหรือเป็น '-'
-      if (rScheduledTime && (!targetRow[3] || targetRow[3] === '-')) {
-        targetRow[3] = rScheduledTime;
+      if (rScheduledTime && (!targetRow[4] || targetRow[4] === '-')) {
+        targetRow[4] = rScheduledTime;
         modified = true;
       }
 
       // อัปเดตลิงก์หากได้ลิงก์สดที่ถูกต้องมาใหม่
-      if (isValidUrl_(fbLink) && (!isValidUrl_(targetRow[4]) || targetRow[4] === '-')) {
-        targetRow[4] = fbLink;
+      if (isValidUrl_(fbLink) && (!isValidUrl_(targetRow[5]) || targetRow[5] === '-')) {
+        targetRow[5] = fbLink;
         modified = true;
       }
-      if (isValidUrl_(ytLink) && (!isValidUrl_(targetRow[5]) || targetRow[5] === '-')) {
-        targetRow[5] = ytLink;
+      if (isValidUrl_(ytLink) && (!isValidUrl_(targetRow[6]) || targetRow[6] === '-')) {
+        targetRow[6] = ytLink;
         modified = true;
       }
-      if (isValidUrl_(ttLink) && (!isValidUrl_(targetRow[6]) || targetRow[6] === '-')) {
-        targetRow[6] = ttLink;
+      if (isValidUrl_(ttLink) && (!isValidUrl_(targetRow[7]) || targetRow[7] === '-')) {
+        targetRow[7] = ttLink;
         modified = true;
       }
-      if (isValidUrl_(xLink) && (!isValidUrl_(targetRow[7]) || targetRow[7] === '-')) {
-        targetRow[7] = xLink;
+      if (isValidUrl_(xLink) && (!isValidUrl_(targetRow[8]) || targetRow[8] === '-')) {
+        targetRow[8] = xLink;
         modified = true;
       }
 
-      // 1. Facebook: เปรียบเทียบยอดวิวพีค (Col I: Peak Time, Col J: Peak View)
-      var curFbPeak = parseViewCount_(targetRow[9]);
+      // 1. Facebook: เปรียบเทียบยอดวิวพีค (Col J: Peak Time, Col K: Peak View)
+      var curFbPeak = parseViewCount_(targetRow[10]);
       if (fbViews >= 0 && (curFbPeak < 0 || fbViews > curFbPeak)) {
-        targetRow[8] = rTime || targetRow[8] || '-';
-        targetRow[9] = fbViews;
+        targetRow[9] = rTime || targetRow[9] || '-';
+        targetRow[10] = fbViews;
         modified = true;
       }
 
-      // 2. YouTube: เปรียบเทียบยอดวิวพีค (Col K: Peak Time, Col L: Peak View)
-      var curYtPeak = parseViewCount_(targetRow[11]);
+      // 2. YouTube: เปรียบเทียบยอดวิวพีค (Col L: Peak Time, Col M: Peak View)
+      var curYtPeak = parseViewCount_(targetRow[12]);
       if (ytViews >= 0 && (curYtPeak < 0 || ytViews > curYtPeak)) {
-        targetRow[10] = rTime || targetRow[10] || '-';
-        targetRow[11] = ytViews;
+        targetRow[11] = rTime || targetRow[11] || '-';
+        targetRow[12] = ytViews;
         modified = true;
       }
 
-      // 3. TikTok: เปรียบเทียบยอดวิวพีค (Col M: Peak Time, Col N: Peak View)
-      var curTtPeak = parseViewCount_(targetRow[13]);
+      // 3. TikTok: เปรียบเทียบยอดวิวพีค (Col N: Peak Time, Col O: Peak View)
+      var curTtPeak = parseViewCount_(targetRow[14]);
       if (ttViews >= 0 && (curTtPeak < 0 || ttViews > curTtPeak)) {
-        targetRow[12] = rTime || targetRow[12] || '-';
-        targetRow[13] = ttViews;
+        targetRow[13] = rTime || targetRow[13] || '-';
+        targetRow[14] = ttViews;
         modified = true;
       }
 
-      // 4. X (Twitter): เปรียบเทียบยอดวิวพีค (Col O: Peak Time, Col P: Peak View)
-      var curXPeak = parseViewCount_(targetRow[15]);
+      // 4. X (Twitter): เปรียบเทียบยอดวิวพีค (Col P: Peak Time, Col Q: Peak View)
+      var curXPeak = parseViewCount_(targetRow[16]);
       if (xViews >= 0 && (curXPeak < 0 || xViews > curXPeak)) {
-        targetRow[14] = rTime || targetRow[14] || '-';
-        targetRow[15] = xViews;
+        targetRow[15] = rTime || targetRow[15] || '-';
+        targetRow[16] = xViews;
         modified = true;
       }
 
@@ -461,6 +477,7 @@ function upsertViewStats_(ss, req) {
         rDate,
         rChannel,
         rTitle,
+        rGenre || '-',
         rScheduledTime || '-',
         isValidUrl_(fbLink) ? fbLink : '-',
         isValidUrl_(ytLink) ? ytLink : '-',
@@ -486,11 +503,11 @@ function upsertViewStats_(ss, req) {
     sh.getRange(2, 1, existingRows.length, VIEW_STATS_HEADERS.length).setValues(existingRows);
     // บังคับรูปแบบข้อความ (Plain Text) สำหรับคอลัมน์ วันที่, เวลาเริ่มในผัง และ เวลาพีค
     sh.getRange(2, 1, existingRows.length, 1).setNumberFormat('@');
-    sh.getRange(2, 4, existingRows.length, 1).setNumberFormat('@');
-    sh.getRange(2, 9, existingRows.length, 1).setNumberFormat('@');
-    sh.getRange(2, 11, existingRows.length, 1).setNumberFormat('@');
-    sh.getRange(2, 13, existingRows.length, 1).setNumberFormat('@');
-    sh.getRange(2, 15, existingRows.length, 1).setNumberFormat('@');
+    sh.getRange(2, 5, existingRows.length, 1).setNumberFormat('@');
+    sh.getRange(2, 10, existingRows.length, 1).setNumberFormat('@');
+    sh.getRange(2, 12, existingRows.length, 1).setNumberFormat('@');
+    sh.getRange(2, 14, existingRows.length, 1).setNumberFormat('@');
+    sh.getRange(2, 16, existingRows.length, 1).setNumberFormat('@');
   }
 
   return {
@@ -566,12 +583,12 @@ function isValidUrl_(url) {
  * เป็นการอ่านอย่างเดียว ไม่แก้ไข/ไม่แตะโค้ดหรือชีทเดิม
  *
  * โครงสร้างชีท 'View Stats':
- *   A วันที่ | B ช่อง | C ชื่อรายการ | D เวลาเริ่มในผัง
- *   E Facebook Link | F YouTube Link | G TikTok Link | H X Link
- *   I Facebook Peak time | J Facebook Views
- *   K YouTube Peak time  | L YouTube Views
- *   M TikTok Peak time   | N TikTok Views
- *   O X Peak time        | P X Views
+ *   A วันที่ | B ช่อง | C ชื่อรายการ | D หมวดหมู่ | E เวลาเริ่มในผัง
+ *   F Facebook Link | G YouTube Link | H TikTok Link | I X Link
+ *   J Facebook Peak time | K Facebook Views
+ *   L YouTube Peak time  | M YouTube Views
+ *   N TikTok Peak time   | O TikTok Views
+ *   P X Peak time        | Q X Views
  *
  * เรียกใช้:  GET  <exec>?action=view_stats
  *           POST <exec>  body: {"action":"view_stats"}
@@ -588,7 +605,7 @@ function buildViewStatsPayload_() {
       return { ok: true, sheet: 'View Stats', total: 0, generated_at: new Date().toISOString(), data: [] };
     }
 
-    var values = sh.getRange(1, 1, lastRow, 16).getValues();
+    var values = sh.getRange(1, 1, lastRow, 17).getValues();
     var out = [];
 
     for (var i = 0; i < values.length; i++) {
@@ -599,7 +616,8 @@ function buildViewStatsPayload_() {
       var date = normalizeDateStr_(r[0]);
       var channel = String(r[1] || '').trim();
       var title = String(r[2] || '').trim();
-      var scheduledTime = formatTimeCell_(r[3]);
+      var genre = String(r[3] || '').trim();
+      var scheduledTime = formatTimeCell_(r[4]);
 
       if (!title || !channel) continue;
       if (channel === 'ช่อง' || title === 'ชื่อรายการ' || date === 'วันที่') continue;
@@ -609,12 +627,13 @@ function buildViewStatsPayload_() {
         date: date,
         channel: channel,
         title: title,
+        genre: genre,
         scheduled_time: scheduledTime,
         platforms: {
-          facebook: platformStat_(r[4], r[8], r[9]),
-          youtube: platformStat_(r[5], r[10], r[11]),
-          tiktok: platformStat_(r[6], r[12], r[13]),
-          x: platformStat_(r[7], r[14], r[15])
+          facebook: platformStat_(r[5], r[9], r[10]),
+          youtube: platformStat_(r[6], r[11], r[12]),
+          tiktok: platformStat_(r[7], r[13], r[14]),
+          x: platformStat_(r[8], r[15], r[16])
         }
       });
     }

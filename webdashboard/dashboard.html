@@ -1806,6 +1806,55 @@
             margin-bottom: 10px;
         }
 
+        .vs-chart-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .vs-chart-head .vs-chart-title {
+            margin-bottom: 0;
+        }
+
+        .vs-topn-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        .vs-topn-select {
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            border-radius: 999px;
+            padding: 5px 10px;
+            cursor: pointer;
+            outline: none;
+            transition: var(--transition);
+        }
+
+        .vs-topn-select:hover,
+        .vs-topn-select:focus {
+            color: #ffffff;
+            border-color: var(--border-focus);
+        }
+
+        .vs-topn-select option {
+            background: #111827;
+            color: #ffffff;
+        }
+
         .vs-chart-canvas-wrap {
             position: relative;
             height: 360px;
@@ -2154,7 +2203,20 @@
                 </div>
                 <div class="vs-charts-row">
                     <div class="vs-chart-box">
-                        <div class="vs-chart-title">ยอดวิวสูงสุดรายรายการ (Top 15)</div>
+                        <div class="vs-chart-head">
+                            <span class="vs-chart-title" id="vsTopProgramsTitle">ยอดวิวสูงสุดรายรายการ (Top 15)</span>
+                            <label class="vs-topn-wrap">แสดง
+                                <select id="vsTopN" class="vs-topn-select" onchange="vsRender()">
+                                    <option value="5">Top 5</option>
+                                    <option value="10">Top 10</option>
+                                    <option value="15" selected>Top 15</option>
+                                    <option value="20">Top 20</option>
+                                    <option value="30">Top 30</option>
+                                    <option value="50">Top 50</option>
+                                    <option value="all">ทั้งหมด</option>
+                                </select>
+                            </label>
+                        </div>
                         <div class="vs-chart-canvas-wrap">
                             <canvas id="vsTopProgramsChart"></canvas>
                         </div>
@@ -4088,6 +4150,11 @@
                 if (!vsRowInTimeframe(r.date)) return;
                 if (query && !String(r.title || '').toLowerCase().includes(query)) return;
 
+                // 'หมวดหมู่' (genre) เป็น dimension ใหม่ในชีท — ยังพัฒนาไม่เสร็จ (มักว่าง)
+                // payload จาก Apps Script ส่งมาในคีย์ 'genre' (มี 'category' เป็น fallback)
+                // รับค่ามาเก็บไว้เฉย ๆ เผื่อใช้กรอง/จัดกลุ่มในอนาคต ยังไม่นำมาประมวลผล
+                const category = String(r.genre || r.category || '').trim();
+
                 let sched = r.scheduled_time || r.schedule_time || '';
                 sched = String(sched).trim().replace(/^(\d{1,2}:\d{2}):00$/, '$1'); // ตัดวินาที :00
                 sched = sched && sched !== '-' ? sched : null;
@@ -4096,9 +4163,10 @@
                 if (timeFrom && (!schedCmp || schedCmp < timeFrom)) return;
                 if (timeTo && (!schedCmp || schedCmp > timeTo)) return;
 
+                const platforms = r.platforms || {};
                 ['facebook', 'youtube', 'x', 'tiktok'].forEach(p => {
                     if (!vsSelectedPlatforms.has(p)) return;
-                    const ps = r.platforms[p] || {};
+                    const ps = platforms[p] || {};
                     const hasView = ps.peak_view !== null && ps.peak_view !== undefined;
                     const hasLink = ps.link && ps.link !== '-';
                     if (!hasView && !hasLink) return;
@@ -4107,6 +4175,7 @@
                     entries.push({
                         title: r.title,
                         channel: r.channel,
+                        category: category,
                         scheduleTime: sched,
                         platform: p,
                         views: hasView ? ps.peak_view : null,
@@ -4303,7 +4372,22 @@
                 `${programs.length} รายการ • รวม ${grandTotal.toLocaleString('en-US')} วิว`;
 
             /* ---------- กราฟที่ 1: แท่งแนวนอน ยอดวิวสูงสุดรายรายการ ---------- */
-            const topProgs = programs.slice().sort((a, b) => b.views - a.views).slice(0, 15);
+            const sortedProgs = programs.slice().sort((a, b) => b.views - a.views);
+            const topNRaw = (document.getElementById('vsTopN') || {}).value || '15';
+            const topN = topNRaw === 'all' ? sortedProgs.length : Math.min(parseInt(topNRaw, 10) || 15, sortedProgs.length);
+            const topProgs = sortedProgs.slice(0, topN);
+
+            const topTitleEl = document.getElementById('vsTopProgramsTitle');
+            if (topTitleEl) {
+                topTitleEl.textContent = topNRaw === 'all'
+                    ? `ยอดวิวสูงสุดรายรายการ (ทั้งหมด ${topProgs.length})`
+                    : `ยอดวิวสูงสุดรายรายการ (Top ${topProgs.length})`;
+            }
+
+            // ปรับความสูง canvas ตามจำนวนแท่ง เพื่อไม่ให้แท่งบีบกันเมื่อเลือกจำนวนมาก
+            const topWrap = document.getElementById('vsTopProgramsChart').parentElement;
+            topWrap.style.height = Math.max(360, topProgs.length * 30 + 40) + 'px';
+
             const clip = (s, n) => (s && s.length > n ? s.slice(0, n - 1) + '…' : (s || ''));
             vsTopProgramsChartInstance = new Chart(document.getElementById('vsTopProgramsChart'), {
                 type: 'bar',
