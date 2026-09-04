@@ -1,0 +1,4083 @@
+<!DOCTYPE html>
+<html lang="th" class="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thai News Intelligence Dashboard (Live Google Sheet)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Prompt:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-primary: #0b0f19;
+            --bg-secondary: #111827;
+            --bg-card: rgba(17, 24, 39, 0.75);
+            --bg-card-hover: rgba(31, 41, 55, 0.85);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-focus: rgba(99, 102, 241, 0.5);
+            --text-primary: #f9fafb;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --accent-primary: #6366f1;
+            --accent-secondary: #0ea5e9;
+            --accent-purple: #a855f7;
+            --accent-pink: #ec4899;
+            --accent-green: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-red: #ef4444;
+            --radius-lg: 16px;
+            --radius-md: 12px;
+            --radius-sm: 8px;
+            --shadow-glow: 0 0 25px rgba(99, 102, 241, 0.15);
+            --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', 'Prompt', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.5;
+            min-height: 100vh;
+            background-image:
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(14, 165, 233, 0.10) 0px, transparent 50%),
+                radial-gradient(at 50% 100%, rgba(236, 72, 153, 0.08) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+
+        /* Layout */
+        .dashboard-container {
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .brand-section {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .brand-icon {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.35);
+        }
+
+        .brand-title h1 {
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #ffffff 40%, #9ca3af 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .brand-title p {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 18px;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 600;
+            text-decoration: none;
+            cursor: pointer;
+            transition: var(--transition);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-sheet {
+            background: rgba(16, 185, 129, 0.12);
+            color: #34d399;
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-sheet:hover {
+            background: rgba(16, 185, 129, 0.22);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-primary), #4f46e5);
+            color: #ffffff;
+            border: none;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-outline {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-secondary);
+            border-color: var(--border-color);
+        }
+
+        .btn-outline:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+        }
+
+        .badge-live {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+            font-weight: 600;
+            font-size: 12px;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .dot-pulse {
+            width: 7px;
+            height: 7px;
+            background-color: #10b981;
+            border-radius: 50%;
+            animation: pulse 1.8s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+            }
+
+            70% {
+                transform: scale(1);
+                box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+            }
+
+            100% {
+                transform: scale(0.95);
+                box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+            }
+        }
+
+        /* Combined Filter Control Panel */
+        .control-panel {
+            position: relative;
+            z-index: 1000;
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 18px 22px;
+            margin-bottom: 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .control-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 14px;
+        }
+
+        .control-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-right: 4px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .timeframe-presets {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .preset-pill {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .preset-pill:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .preset-pill.active {
+            background: linear-gradient(135deg, var(--accent-primary), #4f46e5);
+            color: #ffffff;
+            border-color: var(--accent-primary);
+            box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3);
+        }
+
+        .date-picker-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .date-input-wrap {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .date-input {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            color: #ffffff;
+            padding: 6px 10px;
+            font-size: 12px;
+            outline: none;
+            font-family: inherit;
+            color-scheme: dark;
+            transition: var(--transition);
+        }
+
+        .date-input:focus {
+            border-color: var(--accent-primary);
+        }
+
+        /* Category Filter Pills */
+        .category-filter-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            flex: 1;
+        }
+
+        .cat-pill-list {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .cat-toggle-pill {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            user-select: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .cat-toggle-pill:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+        }
+
+        .cat-toggle-pill.active-politic {
+            background: rgba(239, 68, 68, 0.18);
+            color: #f87171;
+            border-color: rgba(239, 68, 68, 0.5);
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
+        }
+
+        .cat-toggle-pill.active-economy {
+            background: rgba(16, 185, 129, 0.18);
+            color: #34d399;
+            border-color: rgba(16, 185, 129, 0.5);
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+        }
+
+        .cat-toggle-pill.active-society {
+            background: rgba(168, 85, 247, 0.18);
+            color: #c084fc;
+            border-color: rgba(168, 85, 247, 0.5);
+            box-shadow: 0 0 10px rgba(168, 85, 247, 0.2);
+        }
+
+        .cat-toggle-pill.active-crime {
+            background: rgba(245, 158, 11, 0.18);
+            color: #fbbf24;
+            border-color: rgba(245, 158, 11, 0.5);
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+        }
+
+        .cat-toggle-pill.active-sport {
+            background: rgba(14, 165, 233, 0.18);
+            color: #38bdf8;
+            border-color: rgba(14, 165, 233, 0.5);
+            box-shadow: 0 0 10px rgba(14, 165, 233, 0.2);
+        }
+
+        .cat-toggle-pill.active-foreign {
+            background: rgba(236, 72, 153, 0.18);
+            color: #f472b6;
+            border-color: rgba(236, 72, 153, 0.5);
+            box-shadow: 0 0 10px rgba(236, 72, 153, 0.2);
+        }
+
+        .cat-toggle-pill.active-other {
+            background: rgba(156, 163, 175, 0.18);
+            color: #e5e7eb;
+            border-color: rgba(156, 163, 175, 0.5);
+            box-shadow: 0 0 10px rgba(156, 163, 175, 0.2);
+        }
+
+        .cat-toggle-pill.active-all {
+            background: linear-gradient(135deg, var(--accent-primary), #4f46e5);
+            color: #ffffff;
+            border-color: var(--accent-primary);
+            box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3);
+        }
+
+        /* Channel Multi-Select Dropdown */
+        .channel-dropdown-wrap {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 1010;
+        }
+
+        .channel-dropdown-btn {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            color: #ffffff;
+            padding: 7px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: var(--transition);
+        }
+
+        .channel-dropdown-btn:hover {
+            border-color: var(--accent-primary);
+            background: rgba(99, 102, 241, 0.15);
+        }
+
+        .channel-dropdown-menu {
+            position: absolute;
+            top: calc(100% + 8px);
+            right: 0;
+            width: 320px;
+            background: #0f172a;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: var(--radius-md);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9), 0 0 25px rgba(99, 102, 241, 0.2);
+            z-index: 9999;
+            padding: 12px;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            backdrop-filter: blur(24px);
+        }
+
+        .channel-dropdown-menu.show {
+            display: flex;
+            animation: fadeIn 0.15s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .channel-search-box input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: #ffffff;
+            padding: 6px 10px;
+            font-size: 12px;
+            outline: none;
+        }
+
+        .channel-search-box input:focus {
+            border-color: var(--accent-primary);
+        }
+
+        .channel-actions {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .btn-xs {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            flex: 1;
+            transition: var(--transition);
+        }
+
+        .btn-xs:hover {
+            background: rgba(99, 102, 241, 0.2);
+            color: #ffffff;
+            border-color: var(--accent-primary);
+        }
+
+        .channel-checkbox-list {
+            max-height: 240px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding-right: 4px;
+        }
+
+        .channel-check-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: var(--transition);
+            user-select: none;
+        }
+
+        .channel-check-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .channel-check-item-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #ffffff;
+            font-weight: 500;
+        }
+
+        .channel-check-item input[type="checkbox"] {
+            accent-color: var(--accent-primary);
+            cursor: pointer;
+        }
+
+        .channel-item-count {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        /* Loading & Error States */
+        #loadingState,
+        #errorState {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 80px 20px;
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .spinner {
+            width: 44px;
+            height: 44px;
+            border: 3px solid rgba(99, 102, 241, 0.2);
+            border-radius: 50%;
+            border-top-color: var(--accent-primary);
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Metrics KPI Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+
+        .metric-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            position: relative;
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        .metric-card:hover {
+            background: var(--bg-card-hover);
+            border-color: rgba(255, 255, 255, 0.15);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, var(--card-accent, var(--accent-primary)), transparent);
+        }
+
+        .metric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .metric-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .metric-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .metric-value {
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #ffffff;
+            margin-bottom: 4px;
+        }
+
+        .metric-sub {
+            font-size: 12px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Analytics Section (Charts) */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 24px;
+            margin-bottom: 36px;
+        }
+
+        .chart-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            position: relative;
+        }
+
+        .chart-col-8 {
+            grid-column: span 8;
+        }
+
+        .chart-col-4 {
+            grid-column: span 4;
+        }
+
+        .chart-col-12 {
+            grid-column: span 12;
+        }
+
+        @media (max-width: 1024px) {
+
+            .chart-col-8,
+            .chart-col-4 {
+                grid-column: span 12;
+            }
+        }
+
+        .chart-title {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            color: #ffffff;
+        }
+
+        .chart-subtitle {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 320px;
+            width: 100%;
+        }
+
+        /* Heatmap Table Matrix Section */
+        .heatmap-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            margin-bottom: 36px;
+        }
+
+        .heatmap-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .heatmap-legend {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .legend-bar {
+            display: flex;
+            align-items: center;
+            height: 12px;
+            border-radius: 6px;
+            overflow: hidden;
+            width: 120px;
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(99, 102, 241, 0.4), rgba(14, 165, 233, 0.7), rgba(236, 72, 153, 0.9));
+        }
+
+        .heatmap-scroll-container {
+            max-height: 580px;
+            overflow-y: auto;
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            position: relative;
+        }
+
+        .heatmap-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 2px;
+            font-size: 13px;
+            text-align: center;
+        }
+
+        .heatmap-table th {
+            position: sticky;
+            top: 0;
+            background: #111827;
+            padding: 12px 14px;
+            font-weight: 700;
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            z-index: 10;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            white-space: nowrap;
+        }
+
+        .heatmap-table th.col-channel {
+            text-align: left;
+            position: sticky;
+            left: 0;
+            z-index: 20;
+            background: #111827;
+            min-width: 190px;
+            border-right: 1px solid var(--border-color);
+        }
+
+        .heatmap-table td.cell-channel {
+            position: sticky;
+            left: 0;
+            z-index: 5;
+            background: #131b2e;
+            text-align: left;
+            font-weight: 600;
+            color: #ffffff;
+            padding: 10px 14px;
+            border-right: 1px solid var(--border-color);
+            white-space: nowrap;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .heatmap-table td.cell-channel:hover {
+            color: var(--accent-secondary);
+            background: #1e293b;
+        }
+
+        .heatmap-table td.cell-channel.thaipbs-highlight {
+            color: #E95A0A !important;
+            font-weight: 700 !important;
+        }
+
+        .heatmap-table td.cell-channel.thaipbs-highlight:hover {
+            color: #ff7828 !important;
+            background: #1e293b;
+        }
+
+        .heatmap-cell {
+            padding: 10px 8px;
+            border-radius: 6px;
+            font-variant-numeric: tabular-nums;
+            cursor: pointer;
+            transition: var(--transition);
+            min-width: 80px;
+            user-select: none;
+        }
+
+        .heatmap-cell:hover {
+            transform: scale(1.08);
+            z-index: 3;
+            outline: 2px solid #ffffff;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
+        }
+
+        .heatmap-total-col {
+            font-weight: 800;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--accent-secondary);
+            border-left: 1px solid var(--border-color);
+        }
+
+        .heatmap-footer-row td {
+            position: sticky;
+            bottom: 0;
+            background: #111827;
+            font-weight: 800;
+            padding: 12px 8px;
+            border-top: 2px solid rgba(255, 255, 255, 0.15);
+            z-index: 10;
+            color: #ffffff;
+        }
+
+        .heatmap-footer-row td.cell-channel {
+            background: #111827;
+            z-index: 20;
+        }
+
+        /* Data Explorer / Table */
+        .explorer-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+        }
+
+        .filter-bar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 260px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 10px 16px;
+            color: #ffffff;
+            font-size: 14px;
+            outline: none;
+            transition: var(--transition);
+        }
+
+        .search-input:focus {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        }
+
+        .select-filter {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 10px 14px;
+            color: #ffffff;
+            font-size: 14px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .select-filter option {
+            background: #111827;
+            color: #ffffff;
+        }
+
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        table.explorer-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        table.explorer-table th {
+            text-align: left;
+            padding: 12px 16px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-color);
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.05em;
+        }
+
+        table.explorer-table td {
+            padding: 14px 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            color: var(--text-primary);
+        }
+
+        table.explorer-table tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .cat-pill {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .cat-politic {
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .cat-economy {
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .cat-crime {
+            background: rgba(245, 158, 11, 0.15);
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .cat-society {
+            background: rgba(168, 85, 247, 0.15);
+            color: #c084fc;
+            border: 1px solid rgba(168, 85, 247, 0.3);
+        }
+
+        .cat-sport {
+            background: rgba(14, 165, 233, 0.15);
+            color: #38bdf8;
+            border: 1px solid rgba(14, 165, 233, 0.3);
+        }
+
+        .cat-foreign {
+            background: rgba(236, 72, 153, 0.15);
+            color: #f472b6;
+            border: 1px solid rgba(236, 72, 153, 0.3);
+        }
+
+        .cat-other {
+            background: rgba(156, 163, 175, 0.15);
+            color: #d1d5db;
+            border: 1px solid rgba(156, 163, 175, 0.3);
+        }
+
+        .article-title-link {
+            color: #ffffff;
+            text-decoration: none;
+            font-weight: 500;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        .article-title-link:hover {
+            color: var(--accent-secondary);
+        }
+
+        .pagination-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .pagination-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .page-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: #ffffff;
+            padding: 6px 12px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .page-btn:hover:not(:disabled) {
+            background: rgba(99, 102, 241, 0.3);
+            border-color: var(--accent-primary);
+        }
+
+        .page-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* Presentation Mode Button & Styles */
+        .btn-presentation {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(14, 165, 233, 0.25));
+            color: #38bdf8;
+            border-color: rgba(14, 165, 233, 0.4);
+        }
+
+        .btn-presentation:hover {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.45), rgba(14, 165, 233, 0.45));
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(14, 165, 233, 0.35);
+            color: #ffffff;
+        }
+
+        /* 16:9 Presentation Overlay */
+        #presentationOverlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 99999;
+            background: rgba(5, 8, 18, 0.96);
+            backdrop-filter: blur(24px);
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            user-select: none;
+        }
+
+        #presentationOverlay.active {
+            display: flex;
+            animation: presFadeIn 0.2s ease-out;
+        }
+
+        @keyframes presFadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.98);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        /* 16:9 Aspect Ratio Frame Container */
+        .pres-frame {
+            width: min(95vw, calc(90vh * 16 / 9));
+            height: min(90vh, calc(95vw * 9 / 16));
+            aspect-ratio: 16 / 9;
+            background: #0d1322;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: var(--radius-lg);
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(99, 102, 241, 0.2);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* Slideshow Header Bar with Navigation Controls in Upper Right */
+        .pres-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 20px;
+            background: #111827;
+            border-bottom: 1px solid var(--border-color);
+            flex-shrink: 0;
+        }
+
+        .pres-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .pres-brand-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .pres-header-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .pres-filter-badge {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .pres-header-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pres-nav-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            color: #ffffff;
+            padding: 6px 14px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .pres-nav-btn:hover:not(:disabled) {
+            background: rgba(99, 102, 241, 0.45);
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 12px rgba(99, 102, 241, 0.35);
+        }
+
+        .pres-nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .pres-page-badge {
+            background: rgba(0, 0, 0, 0.55);
+            border: 1px solid var(--border-color);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--accent-secondary);
+        }
+
+        .pres-exit-btn {
+            background: rgba(239, 68, 68, 0.18);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #fca5a5;
+            padding: 6px 12px;
+            border-radius: var(--radius-sm);
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .pres-exit-btn:hover {
+            background: rgba(239, 68, 68, 0.35);
+            color: #ffffff;
+        }
+
+        /* Slide Body & Layouts */
+        .pres-slides-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+        }
+
+        .pres-slide {
+            display: none;
+            width: 100%;
+            height: 100%;
+            padding: 18px 24px;
+            flex-direction: column;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+
+        .pres-slide.active-slide {
+            display: flex;
+            animation: slideIn 0.2s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .pres-slide-title-row {
+            margin-bottom: 12px;
+            flex-shrink: 0;
+        }
+
+        .pres-slide-title-row h2 {
+            font-size: 18px;
+            font-weight: 800;
+            color: #ffffff;
+            margin-bottom: 2px;
+        }
+
+        .pres-slide-title-row p {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* Slide 1 Elements */
+        .pres-kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 14px;
+            flex-shrink: 0;
+        }
+
+        .pres-kpi-card {
+            background: rgba(17, 24, 39, 0.85);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 12px 16px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pres-kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, var(--pres-card-accent, var(--accent-primary)), transparent);
+        }
+
+        .pres-kpi-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .pres-kpi-val {
+            font-size: 22px;
+            font-weight: 800;
+            color: #ffffff;
+            margin: 2px 0;
+        }
+
+        .pres-kpi-sub {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .pres-charts-split {
+            display: flex;
+            gap: 14px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .pres-chart-box {
+            background: rgba(17, 24, 39, 0.7);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 12px 14px;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .pres-chart-header {
+            margin-bottom: 6px;
+            flex-shrink: 0;
+        }
+
+        .pres-chart-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .pres-chart-sub {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .pres-canvas-wrap {
+            flex: 1;
+            position: relative;
+            min-height: 0;
+            width: 100%;
+        }
+
+        /* Slide 2 Elements */
+        .pres-slide2-grid {
+            display: flex;
+            gap: 14px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .pres-spotlight-col {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .pres-spotlight-card {
+            background: rgba(17, 24, 39, 0.85);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 14px 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            flex: 1;
+        }
+
+        .pres-spotlight-card.thaipbs-spotlight {
+            border-color: rgba(233, 90, 10, 0.4);
+            background: linear-gradient(135deg, rgba(233, 90, 10, 0.12), rgba(17, 24, 39, 0.9));
+        }
+
+        .spotlight-badge {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            color: var(--accent-secondary);
+            margin-bottom: 4px;
+        }
+
+        .thaipbs-spotlight .spotlight-badge {
+            color: #E95A0A;
+        }
+
+        .spotlight-name {
+            font-size: 16px;
+            font-weight: 800;
+            color: #ffffff;
+        }
+
+        .spotlight-stat {
+            font-size: 20px;
+            font-weight: 800;
+            color: #ffffff;
+            margin: 2px 0;
+        }
+
+        .spotlight-desc {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* Slide 3 & 4 Elements */
+        .pres-heatmap-wrap,
+        .pres-table-wrap {
+            flex: 1;
+            overflow: auto;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            background: rgba(11, 15, 25, 0.6);
+        }
+
+        /* Presentation Footer with Date Range at Bottom Left (for informative screenshots) */
+        .pres-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 7px 20px;
+            background: #090e1a;
+            border-top: 1px solid var(--border-color);
+            flex-shrink: 0;
+            font-size: 11px;
+        }
+
+        .pres-footer-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .pres-date-range-badge {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            color: #f3f4f6;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 12px;
+            letter-spacing: 0.02em;
+        }
+
+        .pres-footer-right {
+            color: var(--text-muted);
+            font-size: 10px;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        /* ===================================================================
+           Page Navigation + "Live View Stats" (Dashboard Page 2)
+           =================================================================== */
+        .page-nav {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            padding: 6px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            backdrop-filter: blur(12px);
+            width: fit-content;
+        }
+
+        .page-nav-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 18px;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 600;
+            font-family: inherit;
+            color: var(--text-secondary);
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .page-nav-btn:hover {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .page-nav-btn.active {
+            color: #ffffff;
+            background: linear-gradient(135deg, var(--accent-primary), #4f46e5);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .vs-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 18px 20px;
+            margin-bottom: 16px;
+            backdrop-filter: blur(12px);
+        }
+
+        .vs-panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .vs-panel-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .vs-hint {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .vs-chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .vs-chip-row.scroll-x {
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            padding-bottom: 6px;
+        }
+
+        .vs-chip {
+            padding: 8px 16px;
+            border-radius: 999px;
+            font-size: 12.5px;
+            font-weight: 600;
+            font-family: inherit;
+            white-space: nowrap;
+            color: var(--text-secondary);
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .vs-chip:hover {
+            color: #ffffff;
+            border-color: var(--border-focus);
+        }
+
+        .vs-chip.active {
+            color: #1a1204;
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            border-color: transparent;
+            box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
+        }
+
+        .vs-chip.plat.active[data-platform="facebook"] {
+            background: linear-gradient(135deg, #3b82f6, #1877F2);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(24, 119, 242, 0.35);
+        }
+
+        .vs-chip.plat.active[data-platform="youtube"] {
+            background: linear-gradient(135deg, #f43f5e, #FF0000);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(255, 0, 0, 0.3);
+        }
+
+        .vs-chip.plat.active[data-platform="x"] {
+            background: linear-gradient(135deg, #374151, #0b0b0b);
+            color: #fff;
+            border-color: #4b5563;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+        }
+
+        .vs-chip.plat.active[data-platform="tiktok"] {
+            background: linear-gradient(135deg, #25F4EE, #FE2C55);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(254, 44, 85, 0.32);
+        }
+
+        .vs-timeframe {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .vs-divider {
+            width: 1px;
+            align-self: stretch;
+            background: var(--border-color);
+            margin: 0 6px;
+        }
+
+        .vs-date-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .vs-date-wrap input[type="date"],
+        .vs-date-wrap input[type="time"] {
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: var(--radius-sm);
+            padding: 7px 10px;
+            font-family: inherit;
+            font-size: 12px;
+            color-scheme: dark;
+        }
+
+        .vs-date-wrap input[type="date"]:focus,
+        .vs-date-wrap input[type="time"]:focus {
+            outline: none;
+            border-color: var(--border-focus);
+        }
+
+        .vs-search {
+            flex: 1;
+            min-width: 180px;
+            max-width: 340px;
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: var(--radius-sm);
+            padding: 8px 12px;
+            font-family: inherit;
+            font-size: 13px;
+        }
+
+        .vs-search:focus {
+            outline: none;
+            border-color: var(--border-focus);
+        }
+
+        .vs-search::placeholder {
+            color: var(--text-muted);
+        }
+
+        .vs-table-wrap {
+            overflow-x: auto;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+        }
+
+        table.vs-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            min-width: 720px;
+        }
+
+        table.vs-table th {
+            text-align: left;
+            padding: 13px 16px;
+            background: #111827;
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            position: sticky;
+            top: 0;
+        }
+
+        table.vs-table th.sortable {
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+
+        table.vs-table th.sortable:hover {
+            color: var(--text-primary);
+        }
+
+        table.vs-table th .vs-sort-ind {
+            display: inline-block;
+            margin-left: 5px;
+            opacity: 0.35;
+            font-size: 10px;
+        }
+
+        table.vs-table th.sorted .vs-sort-ind {
+            opacity: 1;
+            color: var(--accent-primary);
+        }
+
+        table.vs-table td {
+            padding: 12px 16px;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-primary);
+            vertical-align: middle;
+        }
+
+        table.vs-table tbody tr:hover,
+        table.vs-table tbody tr:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .vs-col-views {
+            font-variant-numeric: tabular-nums;
+            font-weight: 700;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .vs-col-time {
+            white-space: nowrap;
+            color: var(--text-secondary);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .vs-plat-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            color: #fff;
+        }
+
+        .vs-plat-badge.facebook { background: #1877F2; }
+        .vs-plat-badge.youtube { background: #FF0000; }
+        .vs-plat-badge.x { background: #0b0b0b; border: 1px solid #4b5563; }
+        .vs-plat-badge.tiktok { background: #FE2C55; }
+
+        .vs-link {
+            color: var(--accent-secondary);
+            text-decoration: none;
+            word-break: break-all;
+            font-size: 12px;
+        }
+
+        .vs-link:hover { text-decoration: underline; }
+
+        .vs-muted { color: var(--text-muted); }
+
+        .vs-state {
+            padding: 48px 20px;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .vs-state .spinner {
+            margin: 0 auto 14px;
+        }
+
+        .vs-title-cell {
+            font-weight: 600;
+            max-width: 340px;
+        }
+
+        .vs-title-cell .vs-ch {
+            display: block;
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        @media (max-width: 640px) {
+            .page-nav { width: 100%; }
+            .page-nav-btn { flex: 1; justify-content: center; }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="dashboard-container">
+        <!-- Page Navigation -->
+        <nav class="page-nav">
+            <button class="page-nav-btn active" id="navNews" onclick="switchPage('news')">📰 News Analytics</button>
+            <button class="page-nav-btn" id="navViewStats" onclick="switchPage('viewstats')">📺 Live View Stats</button>
+        </nav>
+
+        <!-- ===================== PAGE 1: News Analytics ===================== -->
+        <div id="page-news">
+        <!-- Header -->
+        <header>
+            <div class="brand-section">
+                <div class="brand-icon">📡</div>
+                <div class="brand-title">
+                    <h1>Thai News Analytics Dashboard</h1>
+                    <p>Live Streaming Directly from Google Sheet &bull; 37 National & Regional Media Outlets</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <span class="badge-live" id="syncBadge"><span class="dot-pulse"></span> Connected to Google Sheet</span>
+                <button onclick="togglePresentationMode(true)" class="btn btn-presentation" id="presentationModeBtn">🖥️
+                    Present</button>
+                <a href="https://docs.google.com/spreadsheets/d/1VWRrW9LoglCjoAXRYOOsgOo7RKEKvGRCR5OAr0Wo-E0/edit?usp=sharing"
+                    target="_blank" class="btn btn-sheet">📊 Open Google Sheet</a>
+                <button onclick="fetchSheetData()" class="btn btn-primary" id="refreshBtn">🔄 Sync from Sheet</button>
+            </div>
+        </header>
+
+        <!-- Combined Filter Control Panel -->
+        <div class="control-panel">
+            <!-- Row 1: Date Range -->
+            <div class="control-row">
+                <div class="timeframe-presets">
+                    <span class="control-label">📅 Date Range:</span>
+                    <button class="preset-pill" onclick="setPresetDate('all', this)">All Time</button>
+                    <button class="preset-pill" onclick="setPresetDate('today', this)">Today</button>
+                    <button class="preset-pill active" id="presetYesterday"
+                        onclick="setPresetDate('yesterday', this)">Yesterday (Day -1)</button>
+                    <button class="preset-pill" onclick="setPresetDate('7d', this)">Last 7 Days</button>
+                    <button class="preset-pill" onclick="setPresetDate('30d', this)">Last 30 Days</button>
+                </div>
+                <div class="date-picker-group">
+                    <div class="date-input-wrap">
+                        <span>From:</span>
+                        <input type="date" id="startDateInput" class="date-input" onchange="handleCustomDateChange()">
+                    </div>
+                    <div class="date-input-wrap">
+                        <span>To:</span>
+                        <input type="date" id="endDateInput" class="date-input" onchange="handleCustomDateChange()">
+                    </div>
+                    <button class="btn btn-outline" style="padding: 6px 12px; font-size: 12px;"
+                        onclick="clearDateFilter()">Reset Date</button>
+                </div>
+            </div>
+
+            <!-- Row 2: Categories to Show & Channels to Show -->
+            <div class="control-row"
+                style="margin-top: 4px; padding-top: 14px; border-top: 1px solid rgba(255, 255, 255, 0.06);">
+                <!-- Categories Multi-Select Filter -->
+                <div class="category-filter-group">
+                    <span class="control-label">🏷️ Categories:</span>
+                    <button class="cat-toggle-pill active-all" id="selectAllCatsBtn"
+                        onclick="selectAllCategories(true)">All (7)</button>
+                    <button class="cat-toggle-pill" id="clearAllCatsBtn" onclick="selectAllCategories(false)">Clear
+                        All</button>
+                    <div class="cat-pill-list" id="categoryPillList">
+                        <!-- Rendered dynamically -->
+                    </div>
+                </div>
+
+                <!-- Channels Multi-Select Dropdown -->
+                <div class="channel-dropdown-wrap">
+                    <span class="control-label">🏢 Channels:</span>
+                    <button class="channel-dropdown-btn" id="channelDropdownBtn" onclick="toggleChannelDropdown(event)">
+                        <span id="channelDropdownLabel">All Channels (37/37)</span>
+                        <span style="font-size: 10px; margin-left: 4px;">▼</span>
+                    </button>
+
+                    <!-- Dropdown Menu -->
+                    <div class="channel-dropdown-menu" id="channelDropdownMenu">
+                        <div class="channel-search-box">
+                            <input type="text" id="channelSearchInput" placeholder="🔍 Search channels..."
+                                oninput="filterChannelCheckboxList()">
+                        </div>
+                        <div class="channel-actions">
+                            <button type="button" class="btn-xs" onclick="selectAllChannels(true)">Select All</button>
+                            <button type="button" class="btn-xs" onclick="selectAllChannels(false)">Clear All</button>
+                        </div>
+                        <div class="channel-checkbox-list" id="channelCheckboxList">
+                            <!-- Checkbox items rendered dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState">
+            <div class="spinner"></div>
+            <p style="font-weight: 600; color: #ffffff;">Fetching live data from Google Sheet...</p>
+            <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">Connecting to Google Sheets API...
+            </p>
+        </div>
+
+        <!-- Error State (Hidden by default) -->
+        <div id="errorState" style="display: none;">
+            <div style="font-size: 36px; margin-bottom: 12px;">⚠️</div>
+            <p style="font-weight: 700; color: #f87171; font-size: 16px;">Failed to load data from Google Sheet</p>
+            <p id="errorDetails"
+                style="font-size: 13px; color: var(--text-muted); margin: 8px 0 20px 0; max-width: 500px;">Please ensure
+                your device is connected to the internet and the Google Sheet is accessible.</p>
+            <button onclick="fetchSheetData()" class="btn btn-primary">Try Again</button>
+        </div>
+
+        <!-- Main Dashboard Body (Hidden during initial load) -->
+        <div id="dashboardContent" style="display: none;">
+            <!-- Key Metrics Grid -->
+            <section class="metrics-grid">
+                <div class="metric-card" style="--card-accent: var(--accent-primary);">
+                    <div class="metric-header">
+                        <span class="metric-title">Total Articles</span>
+                        <span class="metric-icon">📰</span>
+                    </div>
+                    <div class="metric-value" id="kpiTotalArticles">0</div>
+                    <div class="metric-sub" id="kpiArticlesSub">Synced from Google Sheet</div>
+                </div>
+
+                <div class="metric-card" style="--card-accent: var(--accent-secondary);">
+                    <div class="metric-header">
+                        <span class="metric-title">Active Media Outlets</span>
+                        <span class="metric-icon">🏢</span>
+                    </div>
+                    <div class="metric-value" id="kpiTotalChannels">0</div>
+                    <div class="metric-sub" id="kpiChannelsSub">Selected Channels</div>
+                </div>
+
+                <div class="metric-card" style="--card-accent: var(--accent-purple);">
+                    <div class="metric-header">
+                        <span class="metric-title">Visible Categories</span>
+                        <span class="metric-icon">🏷️</span>
+                    </div>
+                    <div class="metric-value" id="kpiTotalCategories">7 / 7</div>
+                    <div class="metric-sub">Active category filters</div>
+                </div>
+
+                <div class="metric-card" style="--card-accent: var(--accent-green);">
+                    <div class="metric-header">
+                        <span class="metric-title">Last Synced</span>
+                        <span class="metric-icon">⏱️</span>
+                    </div>
+                    <div class="metric-value" id="kpiLastSync"
+                        style="font-size: 18px; font-weight: 700; margin-top: 8px;">-</div>
+                    <div class="metric-sub">Real-time sync</div>
+                </div>
+            </section>
+
+            <!-- Charts Row -->
+            <section class="charts-grid">
+                <!-- Top Categories Doughnut -->
+                <div class="chart-card chart-col-4">
+                    <div class="chart-title">Topic Breakdown</div>
+                    <div class="chart-subtitle">Distribution of selected categories</div>
+                    <div class="chart-wrapper">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Top Channels Bar -->
+                <div class="chart-card chart-col-8">
+                    <div class="chart-title">Top Media Channels by Volume</div>
+                    <div class="chart-subtitle">Articles captured per news outlet in selected filters</div>
+                    <div class="chart-wrapper">
+                        <canvas id="channelChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Timeline Line Chart -->
+                <div class="chart-card chart-col-12">
+                    <div class="chart-title">Publication Frequency Trend</div>
+                    <div class="chart-subtitle">Article count trends across dates in range</div>
+                    <div class="chart-wrapper" style="height: 260px;">
+                        <canvas id="timelineChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Huge Heatmap Matrix Table -->
+            <section class="heatmap-card">
+                <div class="heatmap-header">
+                    <div>
+                        <h2 id="heatmapSectionTitle"
+                            style="font-size: 18px; font-weight: 700; color: #ffffff; margin-bottom: 4px;">News Outlet
+                            Coverage Matrix (Heatmap)</h2>
+                        <p style="font-size: 13px; color: var(--text-secondary);">Interactive category volume heatmap
+                            across selected channels and topics. Click any cell to explore matching articles.</p>
+                    </div>
+                    <div class="heatmap-legend">
+                        <span>Low</span>
+                        <div class="legend-bar"></div>
+                        <span>High</span>
+                    </div>
+                </div>
+
+                <div class="heatmap-scroll-container">
+                    <table class="heatmap-table" id="heatmapMatrixTable">
+                        <!-- Rendered via JS -->
+                    </table>
+                </div>
+            </section>
+
+            <!-- Article Explorer / Table -->
+            <div class="section-header" style="margin-top: 10px;">
+                <h2>Live Article Explorer</h2>
+            </div>
+            <div class="explorer-card">
+                <div class="filter-bar">
+                    <input type="text" id="searchInput" class="search-input"
+                        placeholder="🔍 Search news headline, channel, or topic...">
+                    <select id="channelFilter" class="select-filter">
+                        <option value="ALL">All Channels</option>
+                    </select>
+                    <select id="categoryFilter" class="select-filter">
+                        <option value="ALL">All Categories</option>
+                    </select>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="explorer-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 170px;">Date & Time</th>
+                                <th style="width: 150px;">Category</th>
+                                <th style="width: 160px;">Channel</th>
+                                <th>Article Headline</th>
+                            </tr>
+                        </thead>
+                        <tbody id="articleTableBody">
+                            <!-- Rendered via JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="pagination-container">
+                    <div id="tableInfo">Showing 0 articles</div>
+                    <div class="pagination-buttons">
+                        <button id="prevBtn" class="page-btn" onclick="changePage(-1)" disabled>← Previous</button>
+                        <button id="nextBtn" class="page-btn" onclick="changePage(1)">Next →</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        </div><!-- /#page-news -->
+
+        <!-- ===================== PAGE 2: Live View Stats ===================== -->
+        <div id="page-viewstats" hidden>
+            <header style="margin-bottom: 20px;">
+                <div class="brand-section">
+                    <div class="brand-icon">📺</div>
+                    <div class="brand-title">
+                        <h1>Live View Stats</h1>
+                        <p>ยอดผู้ชมสูงสุดของการถ่ายทอดสด แยกตามช่อง &bull; ชีท "View Stats"</p>
+                    </div>
+                </div>
+                <div class="header-actions">
+                    <span class="badge-live" id="vsSyncBadge"><span class="dot-pulse"></span> Connected to Google Sheet</span>
+                    <button onclick="fetchViewStats()" class="btn btn-primary" id="vsRefreshBtn">🔄 Sync from Sheet</button>
+                </div>
+            </header>
+
+            <!-- Channel selector -->
+            <div class="vs-panel">
+                <div class="vs-panel-head">
+                    <span class="vs-panel-title">เลือกช่อง</span>
+                </div>
+                <div class="vs-chip-row scroll-x" id="vsChannelChips"></div>
+            </div>
+
+            <!-- Timeframe selector -->
+            <div class="vs-panel">
+                <div class="vs-panel-head">
+                    <span class="vs-panel-title">เลือกช่วงเวลา</span>
+                    <span class="vs-hint">เลือก FROM/TO เพื่อกำหนดช่วงเอง (ปุ่มด้านซ้ายจะถูกยกเลิก)</span>
+                </div>
+                <div class="vs-timeframe">
+                    <button class="vs-chip active" data-preset="all" onclick="setVsPreset('all', this)">All time</button>
+                    <button class="vs-chip" data-preset="7d" onclick="setVsPreset('7d', this)">Last 7 days</button>
+                    <button class="vs-chip" data-preset="yesterday" onclick="setVsPreset('yesterday', this)">Yesterday</button>
+                    <button class="vs-chip" data-preset="today" onclick="setVsPreset('today', this)">Today</button>
+                    <span class="vs-divider"></span>
+                    <span class="vs-date-wrap">FROM
+                        <input type="date" id="vsFrom" onchange="onVsCustomDate()">
+                    </span>
+                    <span class="vs-date-wrap">TO
+                        <input type="date" id="vsTo" onchange="onVsCustomDate()">
+                    </span>
+                    <span class="vs-divider"></span>
+                    <span class="vs-date-wrap">เวลาออกอากาศ
+                        <input type="time" id="vsTimeFrom" onchange="vsRender()">
+                        <span>–</span>
+                        <input type="time" id="vsTimeTo" onchange="vsRender()">
+                    </span>
+                    <button class="vs-chip" onclick="clearVsTimeRange()"
+                        style="padding:6px 12px;font-size:11px;">ล้างช่วงเวลา</button>
+                </div>
+            </div>
+
+            <!-- Platform selector -->
+            <div class="vs-panel">
+                <div class="vs-panel-head">
+                    <span class="vs-panel-title">เลือกแพลตฟอร์ม</span>
+                    <span class="vs-hint">เลือกได้หลายอัน</span>
+                </div>
+                <div class="vs-chip-row" id="vsPlatformChips">
+                    <button class="vs-chip plat active" data-platform="facebook" onclick="toggleVsPlatform('facebook', this)">Facebook</button>
+                    <button class="vs-chip plat active" data-platform="youtube" onclick="toggleVsPlatform('youtube', this)">Youtube</button>
+                    <button class="vs-chip plat active" data-platform="x" onclick="toggleVsPlatform('x', this)">X</button>
+                    <button class="vs-chip plat active" data-platform="tiktok" onclick="toggleVsPlatform('tiktok', this)">TikTok</button>
+                </div>
+            </div>
+
+            <!-- Results -->
+            <div class="vs-panel">
+                <div class="vs-panel-head" style="flex-wrap:wrap;">
+                    <input type="text" id="vsSearch" class="vs-search" placeholder="🔍 ค้นหาชื่อรายการ..."
+                        oninput="vsRender()">
+                    <span style="display:flex;align-items:center;gap:14px;">
+                        <label class="vs-hint" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+                            <input type="checkbox" id="vsOnlyWithViews" checked onchange="vsRender()"
+                                style="accent-color:var(--accent-primary);">
+                            แสดงเฉพาะที่มียอดวิว
+                        </label>
+                        <span class="vs-hint" id="vsResultCount">—</span>
+                    </span>
+                </div>
+                <div id="vsLoading" class="vs-state">
+                    <div class="spinner"></div>
+                    กำลังโหลดข้อมูลจาก Google Sheet...
+                </div>
+                <div id="vsError" class="vs-state" hidden style="color:#f87171;"></div>
+                <div id="vsEmpty" class="vs-state" hidden>ไม่พบข้อมูลตามเงื่อนไขที่เลือก</div>
+                <div class="vs-table-wrap" id="vsTableWrap" hidden>
+                    <table class="vs-table">
+                        <thead>
+                            <tr>
+                                <th class="sortable" data-sort="title" onclick="vsSortBy('title')">รายการ<span class="vs-sort-ind"></span></th>
+                                <th class="sortable" data-sort="air" onclick="vsSortBy('air')">วันเวลาที่ออกอากาศ<span class="vs-sort-ind"></span></th>
+                                <th class="sortable" data-sort="platform" onclick="vsSortBy('platform')">แพลตฟอร์ม<span class="vs-sort-ind"></span></th>
+                                <th class="sortable" data-sort="views" style="text-align:right;" onclick="vsSortBy('views')">ยอดดูสูงสุด<span class="vs-sort-ind"></span></th>
+                                <th class="sortable" data-sort="peak" onclick="vsSortBy('peak')">อัพเดทเมื่อ<span class="vs-sort-ind"></span></th>
+                                <th>ลิ้งค์ปัจจุบัน (URL)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="vsTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div><!-- /#page-viewstats -->
+
+        <!-- Footer -->
+        <footer>
+            <p>Thai News Scraper Analytics Dashboard &bull; Live Google Sheets Integration &bull; Powered by Antigravity
+            </p>
+        </footer>
+    </div>
+
+    <!-- ======================================================= -->
+    <!-- 16:9 Presentation Mode Overlay (Slideshow)             -->
+    <!-- ======================================================= -->
+    <div id="presentationOverlay">
+        <!-- 16:9 Frame Container -->
+        <div class="pres-frame">
+            <!-- Slideshow Header with Navigation in Upper Right Corner -->
+            <div class="pres-header">
+                <div class="pres-header-left">
+                    <div class="pres-brand-icon">📡</div>
+                    <div>
+                        <div class="pres-header-title">Thai News Analytics &bull; Slideshow (16:9)</div>
+                        <div id="presFilterBadge" class="pres-filter-badge">All Outlets &bull; All Categories</div>
+                    </div>
+                </div>
+
+                <!-- Two Navigation Buttons in the Upper Right Corner (+ page badge & exit) -->
+                <div class="pres-header-controls">
+                    <span id="presPageBadge" class="pres-page-badge">Slide 1 / 4</span>
+                    <button onclick="prevSlide()" class="pres-nav-btn" id="presPrevBtn"
+                        title="Previous Slide (← / PageUp)">◀ Prev</button>
+                    <button onclick="nextSlide()" class="pres-nav-btn" id="presNextBtn"
+                        title="Next Slide (→ / PageDown / Space)">Next ▶</button>
+                    <button onclick="togglePresentationMode(false)" class="pres-exit-btn"
+                        title="Exit Presentation (Esc)">✕ Exit (ESC)</button>
+                </div>
+            </div>
+
+            <!-- Slides Container -->
+            <div class="pres-slides-container">
+                <!-- Slide 1: Executive KPI & Overview (16:9) -->
+                <div id="presSlide-0" class="pres-slide active-slide">
+                    <div class="pres-slide-title-row">
+                        <h2>Executive Overview & Publication Trends</h2>
+                        <p>Core KPIs and category distributions across active verified media outlets</p>
+                    </div>
+
+                    <div class="pres-kpi-grid">
+                        <div class="pres-kpi-card" style="--pres-card-accent: var(--accent-primary);">
+                            <div class="pres-kpi-label">Total Articles</div>
+                            <div class="pres-kpi-val" id="presKpiTotalArticles">0</div>
+                            <div class="pres-kpi-sub">Synced live data</div>
+                        </div>
+                        <div class="pres-kpi-card" style="--pres-card-accent: var(--accent-secondary);">
+                            <div class="pres-kpi-label">Active Media Outlets</div>
+                            <div class="pres-kpi-val" id="presKpiTotalChannels">0</div>
+                            <div class="pres-kpi-sub">Publishing in range</div>
+                        </div>
+                        <div class="pres-kpi-card" style="--pres-card-accent: var(--accent-purple);">
+                            <div class="pres-kpi-label">Visible Categories</div>
+                            <div class="pres-kpi-val" id="presKpiTotalCategories">7 / 7</div>
+                            <div class="pres-kpi-sub">Active filters</div>
+                        </div>
+                        <div class="pres-kpi-card" style="--pres-card-accent: #E95A0A;">
+                            <div class="pres-kpi-label">ThaiPBS Coverage</div>
+                            <div class="pres-kpi-val" id="presKpiThaiPbs">0</div>
+                            <div class="pres-kpi-sub" style="color: #E95A0A; font-weight: 600;">ThaiPBS & World</div>
+                        </div>
+                    </div>
+
+                    <div class="pres-charts-split">
+                        <div class="pres-chart-box" style="flex: 4.8;">
+                            <div class="pres-chart-header">
+                                <div class="pres-chart-title">Topic Breakdown</div>
+                                <div class="pres-chart-sub">Category distribution with exact count & %</div>
+                            </div>
+                            <div class="pres-canvas-wrap">
+                                <canvas id="presCategoryChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="pres-chart-box" style="flex: 7.2;">
+                            <div class="pres-chart-header">
+                                <div class="pres-chart-title">Publication Frequency Trend</div>
+                                <div class="pres-chart-sub">Chronological volume trends across publication timeline
+                                </div>
+                            </div>
+                            <div class="pres-canvas-wrap">
+                                <canvas id="presTimelineChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 2: Top Media Channels by Volume (16:9) -->
+                <div id="presSlide-1" class="pres-slide">
+                    <div class="pres-slide-title-row">
+                        <h2>Top Media Channels by Publishing Volume</h2>
+                        <p>Ranking of national and regional outlets (ThaiPBS highlighted in signature orange)</p>
+                    </div>
+
+                    <div class="pres-slide2-grid">
+                        <div class="pres-chart-box" style="flex: 8.5;">
+                            <div class="pres-canvas-wrap" style="height: 100%;">
+                                <canvas id="presChannelChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="pres-spotlight-col" style="flex: 3.5;">
+                            <div class="pres-spotlight-card thaipbs-spotlight">
+                                <div class="spotlight-badge">FEATURED OUTLET</div>
+                                <div class="spotlight-name" style="color: #E95A0A;">ThaiPBS</div>
+                                <div class="spotlight-stat" id="presThaiPbsStat">0 articles</div>
+                                <div class="spotlight-desc" id="presThaiPbsRank">Public service broadcast media</div>
+                            </div>
+                            <div class="pres-spotlight-card">
+                                <div class="spotlight-badge">TOP CONTRIBUTOR</div>
+                                <div class="spotlight-name" id="presTopChannelName">-</div>
+                                <div class="spotlight-stat" id="presTopChannelCount">0 articles</div>
+                                <div class="spotlight-desc">Highest volume news provider</div>
+                            </div>
+                            <div class="pres-spotlight-card">
+                                <div class="spotlight-badge">NETWORK SCOPE</div>
+                                <div class="spotlight-name">37 Channels</div>
+                                <div class="spotlight-stat" id="presTotalMonitored">All Sources</div>
+                                <div class="spotlight-desc">Comprehensive cross-channel tracking</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slide 3: News Outlet Coverage Matrix (Heatmap) (16:9) -->
+                <div id="presSlide-2" class="pres-slide">
+                    <div class="pres-slide-title-row" style="margin-bottom: 8px;">
+                        <h2>News Outlet Coverage Matrix (Heatmap)</h2>
+                        <p>Cross-channel publishing density matrix by standard category</p>
+                    </div>
+                    <div class="pres-heatmap-wrap">
+                        <table class="heatmap-table" id="presHeatmapMatrixTable"></table>
+                    </div>
+                </div>
+
+                <!-- Slide 4: Live Article Explorer (16:9) -->
+                <div id="presSlide-3" class="pres-slide">
+                    <div class="pres-slide-title-row" style="margin-bottom: 8px;">
+                        <h2>Live Article Explorer & Headlines</h2>
+                        <p>Real-time articles and verified headlines matching your current filters</p>
+                    </div>
+                    <div class="pres-table-wrap">
+                        <table class="explorer-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 160px;">Date & Time</th>
+                                    <th style="width: 140px;">Category</th>
+                                    <th style="width: 160px;">Channel</th>
+                                    <th>Article Headline</th>
+                                </tr>
+                            </thead>
+                            <tbody id="presArticleTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slideshow Bottom Bar with Date Range at Bottom Left for Screenshots -->
+            <div class="pres-footer">
+                <div class="pres-footer-left">
+                    <span class="pres-date-range-badge" id="presFooterDateRange"></span>
+                </div>
+                <div class="pres-footer-right">
+                    <span id="presFooterSlideIndicator">Thai News Analytics &bull; 16:9 Presentation</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Google Sheet Configuration
+        const SHEET_ID = "1VWRrW9LoglCjoAXRYOOsgOo7RKEKvGRCR5OAr0Wo-E0";
+
+        // Apps Script Web App (.env: APPS_SCRIPT_URL) — endpoint สำหรับหน้า "Live View Stats"
+        const VIEW_STATS_API = "https://script.google.com/macros/s/AKfycbwLRt8Y5bsY2F3iXddrjRVC5v9DvVqtwyjvhmR-9ywTA_cmszRaSOh2O4I87LJnHCfc/exec";
+
+        // Global State
+        let allArticles = [];
+        let dateFilteredArticles = [];
+        let searchFilteredArticles = [];
+        let currentPage = 1;
+        const pageSize = 20;
+        let lastSyncedTimestamp = null;
+
+        // Standard 7 Categories for Visual Matrix & Aggregation
+        const STANDARD_CATEGORIES = [
+            { name: 'การเมือง', icon: '🔴', className: 'active-politic', color: '#ef4444' },
+            { name: 'เศรษฐกิจ', icon: '🟢', className: 'active-economy', color: '#10b981' },
+            { name: 'สังคม', icon: '🟣', className: 'active-society', color: '#a855f7' },
+            { name: 'อาชญากรรม', icon: '🟡', className: 'active-crime', color: '#f59e0b' },
+            { name: 'กีฬา', icon: '🔵', className: 'active-sport', color: '#0ea5e9' },
+            { name: 'ต่างประเทศ', icon: '🌸', className: 'active-foreign', color: '#ec4899' },
+            { name: 'อื่นๆ', icon: '⚪', className: 'active-other', color: '#9ca3af' }
+        ];
+
+        // Active Category Filters (Set of active category names)
+        let activeSelectedCategories = new Set(STANDARD_CATEGORIES.map(c => c.name));
+
+        // Active Channel Filters (Set of active channel names)
+        let allUniqueChannels = [];
+        let activeSelectedChannels = new Set();
+
+        // Date Range Filter State
+        let filterStartDate = null;
+        let filterEndDate = null;
+
+        // Chart Instances
+        let catChartInstance = null;
+        let chChartInstance = null;
+        let timelineChartInstance = null;
+        let fetchTimeoutId = null;
+
+        // Presentation Mode Variables
+        let currentSlideIndex = 0;
+        const totalSlides = 4;
+        let presCatChartInstance = null;
+        let presChChartInstance = null;
+        let presTimelineChartInstance = null;
+        let cachedVisualCatMap = {};
+        let cachedChannelMap = {};
+        let cachedTimelineData = null;
+        let cachedChannelMatrixMap = {};
+
+        // Thai Month Lookup Table
+        const THAI_MONTHS_MAP = {
+            'ม.ค.': 0, 'มกราคม': 0, 'jan': 0, 'january': 0,
+            'ก.พ.': 1, 'กุมภาพันธ์': 1, 'feb': 1, 'february': 1,
+            'มี.ค.': 2, 'มีนาคม': 2, 'mar': 2, 'march': 2,
+            'เม.ย.': 3, 'เมษายน': 3, 'apr': 3, 'april': 3,
+            'พ.ค.': 4, 'พฤษภาคม': 4, 'may': 4,
+            'มิ.ย.': 5, 'มิถุนายน': 5, 'jun': 5, 'june': 5,
+            'ก.ค.': 6, 'กรกฎาคม': 6, 'jul': 6, 'july': 6,
+            'ส.ค.': 7, 'สิงหาคม': 7, 'aug': 7, 'august': 7,
+            'ก.ย.': 8, 'กันยายน': 8, 'sep': 8, 'september': 8,
+            'ต.ค.': 9, 'ตุลาคม': 9, 'oct': 9, 'october': 9,
+            'พ.ย.': 10, 'พฤศจิกายน': 10, 'nov': 10, 'november': 10,
+            'ธ.ค.': 11, 'ธันวาคม': 11, 'dec': 11, 'december': 11
+        };
+
+        // Robust Date Parser for Thai Buddhist Era, English & ISO formats
+        function parseArticleDate(dateStr) {
+            if (!dateStr || dateStr === 'N/A') return null;
+            dateStr = dateStr.trim();
+
+            // Check ISO YYYY-MM-DD
+            const isoMatch = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if (isoMatch) {
+                return new Date(parseInt(isoMatch[1]), parseInt(isoMatch[2]) - 1, parseInt(isoMatch[3]));
+            }
+
+            // Check DD/MM/YYYY
+            const slashMatch = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+            if (slashMatch) {
+                let yr = parseInt(slashMatch[3]);
+                if (yr > 2400) yr -= 543;
+                return new Date(yr, parseInt(slashMatch[2]) - 1, parseInt(slashMatch[1]));
+            }
+
+            // Thai text format: e.g. "31 ส.ค. 2569 14:14 น." or "10 มิ.ย. 69 08:30"
+            const thaiMatch = dateStr.match(/(\d{1,2})\s+([^\s0-9]+)\s+(\d{2,4})(?:\s+(\d{1,2})[:\.](\d{2}))?/);
+            if (thaiMatch) {
+                const day = parseInt(thaiMatch[1]);
+                const mStr = thaiMatch[2].toLowerCase();
+                let yr = parseInt(thaiMatch[3]);
+                if (yr < 100) yr += 2500;
+                if (yr > 2400) yr -= 543;
+
+                let mIdx = 0;
+                for (const [k, v] of Object.entries(THAI_MONTHS_MAP)) {
+                    if (mStr.startsWith(k) || k.startsWith(mStr)) {
+                        mIdx = v;
+                        break;
+                    }
+                }
+                const hr = thaiMatch[4] ? parseInt(thaiMatch[4]) : 0;
+                const min = thaiMatch[5] ? parseInt(thaiMatch[5]) : 0;
+                return new Date(yr, mIdx, day, hr, min);
+            }
+
+            return null;
+        }
+
+        // Visual Aggregator Normalizer
+        function normalizeCategory(cat) {
+            if (!cat || cat === '-' || cat === 'N/A') return 'อื่นๆ';
+            const c = cat.trim();
+            if (['การเมือง', 'politics', 'politic', 'policy', 'วิเคราะห์ การเมือง'].includes(c)) return 'การเมือง';
+            if (['เศรษฐกิจ', 'เศรษฐกิจไทย', 'economy', 'economic', 'economics', 'business', 'finance', 'banking-finance', 'trading-investment', 'property', 'real-estate', 'corporate', 'tech', 'trade', 'Smart SME', 'ธุรกิจ', 'สังคมธุรกิจ', 'การเงิน', 'Wealth', 'Digital-business', 'เกษตร'].includes(c)) return 'เศรษฐกิจ';
+            if (['สังคม', 'ข่าวสังคม', 'social', 'general', 'in-country', 'ในประเทศ', 'ทั่วไทย', 'around-thailand', 'สาธารณภัย', 'สกู๊ปสังคม', 'Bangkok', 'ทั่วไป', 'ข่าวทั่วไป', 'Health', 'สุขภาพ', 'เกาะติด COVID-19', 'พยากรณ์อากาศ', 'Earth', 'Smart City'].includes(c)) return 'สังคม';
+            if (['อาชญากรรม', 'crime', 'criminality', 'investigative', 'สืบสวนเชิงลึก', 'ลักวิ่งชิงปล้น'].includes(c)) return 'อาชญากรรม';
+            if (['กีฬา', 'sport', 'sports', 'วอลเลย์บอล'].includes(c)) return 'กีฬา';
+            if (['ต่างประเทศ', 'foreign', 'abroad', 'world', 'international', 'asean', 'เศรษฐกิจต่างประเทศ', 'World'].includes(c)) return 'ต่างประเทศ';
+            return 'อื่นๆ';
+        }
+
+        // Category Badge Color Mapper
+        function getCatClass(cat) {
+            const visual = normalizeCategory(cat);
+            if (visual === 'การเมือง') return 'cat-politic';
+            if (visual === 'เศรษฐกิจ') return 'cat-economy';
+            if (visual === 'อาชญากรรม') return 'cat-crime';
+            if (visual === 'สังคม') return 'cat-society';
+            if (visual === 'กีฬา') return 'cat-sport';
+            if (visual === 'ต่างประเทศ') return 'cat-foreign';
+            return 'cat-other';
+        }
+
+        // Helper to detect ThaiPBS and ThaiPBS World
+        function isThaiPbs(name) {
+            if (!name) return false;
+            const clean = String(name).toLowerCase().replace(/[\s\-_]+/g, '');
+            return clean === 'thaipbs' || clean === 'thaipbsworld';
+        }
+
+        // JSONP Callback for Google Visualization API
+        window.handleGvizResponse = function (response) {
+            if (fetchTimeoutId) clearTimeout(fetchTimeoutId);
+
+            if (!response || !response.table || !response.table.rows) {
+                showError("Invalid response structure received from Google Sheet.");
+                return;
+            }
+
+            try {
+                const rows = response.table.rows;
+                const parsedArticles = [];
+                const chSet = new Set();
+
+                rows.forEach(r => {
+                    const cells = r.c || [];
+                    const date = cells[0] ? String(cells[0].v || cells[0].f || '') : '';
+                    const rawCategory = cells[1] ? String(cells[1].v || cells[1].f || '') : '-';
+                    const category = rawCategory || '-'; // Real category name
+                    const visualCategory = normalizeCategory(rawCategory); // Standard 7 Category
+                    const channel = cells[2] ? String(cells[2].v || cells[2].f || '') : 'Unknown';
+                    const title = cells[3] ? String(cells[3].v || cells[3].f || '') : '';
+                    const link = cells[4] ? String(cells[4].v || cells[4].f || '') : '';
+
+                    if (title && link && title !== 'article title' && !title.startsWith('http')) {
+                        const dateObj = parseArticleDate(date);
+                        parsedArticles.push({ date, category, visualCategory, channel, title, link, dateObj });
+                        if (channel && channel !== 'Unknown') chSet.add(channel);
+                    }
+                });
+
+                allArticles = parsedArticles;
+                allUniqueChannels = Array.from(chSet).sort();
+                activeSelectedChannels = new Set(allUniqueChannels);
+
+                lastSyncedTimestamp = new Date();
+                const timeStr = lastSyncedTimestamp.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                document.getElementById('kpiLastSync').textContent = timeStr;
+                document.getElementById('syncBadge').innerHTML = `<span class="dot-pulse"></span> Live Sheet Synced (${lastSyncedTimestamp.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })})`;
+
+                // Default date range is Yesterday (Day -1)
+                const yesterdayBtn = document.getElementById('presetYesterday');
+                setPresetDate('yesterday', yesterdayBtn);
+
+            } catch (err) {
+                console.error("Error processing Google Sheet rows:", err);
+                showError("Failed to parse sheet data: " + err.message);
+            }
+        };
+
+        // Fetch Live Data using JSONP
+        function fetchSheetData() {
+            const refreshBtn = document.getElementById('refreshBtn');
+
+            refreshBtn.disabled = true;
+            refreshBtn.textContent = '🔄 Syncing...';
+
+            document.getElementById('errorState').style.display = 'none';
+            document.getElementById('loadingState').style.display = 'flex';
+            document.getElementById('dashboardContent').style.display = 'none';
+
+            const oldScript = document.getElementById('gviz-jsonp-script');
+            if (oldScript) oldScript.remove();
+
+            if (fetchTimeoutId) clearTimeout(fetchTimeoutId);
+            fetchTimeoutId = setTimeout(() => {
+                showError("Request timed out. Please check your network connection.");
+            }, 15000);
+
+            const script = document.createElement('script');
+            script.id = 'gviz-jsonp-script';
+            script.src = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=responseHandler:handleGvizResponse&_=${Date.now()}`;
+
+            script.onerror = function () {
+                if (fetchTimeoutId) clearTimeout(fetchTimeoutId);
+                showError("Failed to load Google Sheet script. Check your internet connection or spreadsheet permissions.");
+            };
+
+            document.head.appendChild(script);
+        }
+
+        function showError(msg) {
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('dashboardContent').style.display = 'none';
+            document.getElementById('errorState').style.display = 'flex';
+            document.getElementById('errorDetails').textContent = msg;
+
+            const refreshBtn = document.getElementById('refreshBtn');
+            refreshBtn.disabled = false;
+            refreshBtn.textContent = '🔄 Sync from Sheet';
+        }
+
+        // Date Filter Handlers
+        function setPresetDate(preset, btnElement) {
+            document.querySelectorAll('.preset-pill').forEach(p => p.classList.remove('active'));
+            if (btnElement) btnElement.classList.add('active');
+
+            const now = new Date();
+            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+            if (preset === 'all') {
+                filterStartDate = null;
+                filterEndDate = null;
+                document.getElementById('startDateInput').value = '';
+                document.getElementById('endDateInput').value = '';
+            } else if (preset === 'today') {
+                filterStartDate = todayStart;
+                filterEndDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+                document.getElementById('startDateInput').value = formatDateForInput(todayStart);
+                document.getElementById('endDateInput').value = formatDateForInput(todayStart);
+            } else if (preset === 'yesterday') {
+                const yest = new Date(todayStart);
+                yest.setDate(yest.getDate() - 1);
+                filterStartDate = yest;
+                filterEndDate = new Date(yest.getFullYear(), yest.getMonth(), yest.getDate(), 23, 59, 59);
+                document.getElementById('startDateInput').value = formatDateForInput(yest);
+                document.getElementById('endDateInput').value = formatDateForInput(yest);
+            } else if (preset === '7d') {
+                const past7 = new Date(todayStart);
+                past7.setDate(past7.getDate() - 7);
+                filterStartDate = past7;
+                filterEndDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+                document.getElementById('startDateInput').value = formatDateForInput(past7);
+                document.getElementById('endDateInput').value = formatDateForInput(todayStart);
+            } else if (preset === '30d') {
+                const past30 = new Date(todayStart);
+                past30.setDate(past30.getDate() - 30);
+                filterStartDate = past30;
+                filterEndDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+                document.getElementById('startDateInput').value = formatDateForInput(past30);
+                document.getElementById('endDateInput').value = formatDateForInput(todayStart);
+            }
+
+            applyDashboardFilters();
+        }
+
+        function handleCustomDateChange() {
+            document.querySelectorAll('.preset-pill').forEach(p => p.classList.remove('active'));
+
+            const startVal = document.getElementById('startDateInput').value;
+            const endVal = document.getElementById('endDateInput').value;
+
+            filterStartDate = startVal ? new Date(startVal + "T00:00:00") : null;
+            filterEndDate = endVal ? new Date(endVal + "T23:59:59") : null;
+
+            applyDashboardFilters();
+        }
+
+        function clearDateFilter() {
+            setPresetDate('all', document.querySelector('.preset-pill'));
+        }
+
+        function formatDateForInput(d) {
+            const yr = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${yr}-${m}-${day}`;
+        }
+
+        // Clean date range formatter (e.g. "30 ส.ค. - 2 ก.ย. 2026" or "30 ส.ค. 2025 - 2 ก.ย. 2026")
+        function getFormattedDateRangeText() {
+            const thaiMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
+            let s = filterStartDate;
+            let e = filterEndDate;
+
+            // If All Time (no explicit date filters set), calculate earliest and latest date from articles
+            if (!s && !e) {
+                if (allArticles && allArticles.length > 0) {
+                    for (const art of allArticles) {
+                        if (art.dateObj) {
+                            if (!s || art.dateObj < s) s = art.dateObj;
+                            if (!e || art.dateObj > e) e = art.dateObj;
+                        }
+                    }
+                }
+            }
+
+            if (!s || !e) {
+                return 'All Time';
+            }
+
+            const sDay = s.getDate();
+            const sMonth = thaiMonths[s.getMonth()];
+            const sYear = s.getFullYear();
+
+            const eDay = e.getDate();
+            const eMonth = thaiMonths[e.getMonth()];
+            const eYear = e.getFullYear();
+
+            // Single day: e.g. "2 ก.ย. 2026"
+            if (sDay === eDay && s.getMonth() === e.getMonth() && sYear === eYear) {
+                return `${sDay} ${sMonth} ${sYear}`;
+            }
+
+            // Spans across multiple years: e.g. "30 ส.ค. 2025 - 2 ก.ย. 2026"
+            if (sYear !== eYear) {
+                return `${sDay} ${sMonth} ${sYear} - ${eDay} ${eMonth} ${eYear}`;
+            }
+
+            // Same year range: e.g. "30 ส.ค. - 2 ก.ย. 2026"
+            return `${sDay} ${sMonth} - ${eDay} ${eMonth} ${sYear}`;
+        }
+
+        // Category Multi-Select Toggle Functions
+        function toggleCategory(catName) {
+            if (activeSelectedCategories.has(catName)) {
+                activeSelectedCategories.delete(catName);
+            } else {
+                activeSelectedCategories.add(catName);
+            }
+            updateCategoryPillButtons();
+            applyDashboardFilters();
+        }
+
+        function selectAllCategories(select) {
+            if (select) {
+                activeSelectedCategories = new Set(STANDARD_CATEGORIES.map(c => c.name));
+            } else {
+                activeSelectedCategories.clear();
+            }
+            updateCategoryPillButtons();
+            applyDashboardFilters();
+        }
+
+        function renderCategoryPillBar(dateFilteredPool) {
+            const container = document.getElementById('categoryPillList');
+            container.innerHTML = '';
+
+            const counts = {};
+            STANDARD_CATEGORIES.forEach(c => counts[c.name] = 0);
+            dateFilteredPool.forEach(art => {
+                counts[art.visualCategory] = (counts[art.visualCategory] || 0) + 1;
+            });
+
+            STANDARD_CATEGORIES.forEach(cat => {
+                const isActive = activeSelectedCategories.has(cat.name);
+                const count = counts[cat.name] || 0;
+                const btn = document.createElement('button');
+                btn.className = `cat-toggle-pill ${isActive ? cat.className : ''}`;
+                btn.innerHTML = `${cat.icon} ${cat.name} <span style="font-size: 11px; opacity: 0.8; font-weight: 400;">(${count.toLocaleString()})</span>`;
+                btn.onclick = () => toggleCategory(cat.name);
+                container.appendChild(btn);
+            });
+
+            const selectAllBtn = document.getElementById('selectAllCatsBtn');
+            const clearAllBtn = document.getElementById('clearAllCatsBtn');
+
+            if (selectAllBtn) {
+                selectAllBtn.className = `cat-toggle-pill ${activeSelectedCategories.size === STANDARD_CATEGORIES.length ? 'active-all' : ''}`;
+                selectAllBtn.textContent = `All (${STANDARD_CATEGORIES.length})`;
+            }
+            if (clearAllBtn) {
+                clearAllBtn.className = `cat-toggle-pill ${activeSelectedCategories.size === 0 ? 'active-all' : ''}`;
+            }
+        }
+
+        function updateCategoryPillButtons() {
+            renderCategoryPillBar(dateFilteredArticles);
+        }
+
+        // Channel Multi-Select Dropdown Handlers
+        function toggleChannelDropdown(e) {
+            e.stopPropagation();
+            const menu = document.getElementById('channelDropdownMenu');
+            menu.classList.toggle('show');
+            if (menu.classList.contains('show')) {
+                document.getElementById('channelSearchInput').focus();
+            }
+        }
+
+        function closeChannelDropdown() {
+            document.getElementById('channelDropdownMenu').classList.remove('show');
+        }
+
+        function selectAllChannels(select) {
+            if (select) {
+                activeSelectedChannels = new Set(allUniqueChannels);
+            } else {
+                activeSelectedChannels.clear();
+            }
+            renderChannelDropdownList(dateFilteredArticles);
+            applyDashboardFilters();
+        }
+
+        function toggleSingleChannel(chName) {
+            if (activeSelectedChannels.has(chName)) {
+                activeSelectedChannels.delete(chName);
+            } else {
+                activeSelectedChannels.add(chName);
+            }
+            renderChannelDropdownList(dateFilteredArticles);
+            applyDashboardFilters();
+        }
+
+        function filterChannelCheckboxList() {
+            const q = document.getElementById('channelSearchInput').value.toLowerCase().trim();
+            document.querySelectorAll('.channel-check-item').forEach(item => {
+                const name = item.getAttribute('data-channel').toLowerCase();
+                item.style.display = (!q || name.includes(q)) ? 'flex' : 'none';
+            });
+        }
+
+        function renderChannelDropdownList(dateFilteredPool) {
+            const list = document.getElementById('channelCheckboxList');
+            list.innerHTML = '';
+
+            // Calculate article counts per channel in current date pool
+            const counts = {};
+            allUniqueChannels.forEach(ch => counts[ch] = 0);
+            dateFilteredPool.forEach(art => {
+                counts[art.channel] = (counts[art.channel] || 0) + 1;
+            });
+
+            // Sort channels by article count descending
+            const sorted = [...allUniqueChannels].sort((a, b) => (counts[b] || 0) - (counts[a] || 0));
+
+            sorted.forEach(ch => {
+                const count = counts[ch] || 0;
+                const isChecked = activeSelectedChannels.has(ch);
+
+                const label = document.createElement('label');
+                label.className = 'channel-check-item';
+                label.setAttribute('data-channel', ch);
+                label.innerHTML = `
+            <div class="channel-check-item-left">
+                <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleSingleChannel('${ch}')">
+                <span>${ch}</span>
+            </div>
+            <span class="channel-item-count">${count.toLocaleString()}</span>
+        `;
+                list.appendChild(label);
+            });
+
+            // Update Dropdown Button Label
+            const total = allUniqueChannels.length;
+            const active = activeSelectedChannels.size;
+            const labelText = active === total
+                ? `All Channels (${total}/${total})`
+                : (active === 0 ? `None Selected (0/${total})` : `Selected (${active}/${total})`);
+            document.getElementById('channelDropdownLabel').textContent = labelText;
+        }
+
+        // Master Dashboard Filter Application
+        function applyDashboardFilters() {
+            // 1. Filter by Date Range
+            if (!filterStartDate && !filterEndDate) {
+                dateFilteredArticles = [...allArticles];
+            } else {
+                dateFilteredArticles = allArticles.filter(art => {
+                    if (!art.dateObj) return false;
+                    if (filterStartDate && art.dateObj < filterStartDate) return false;
+                    if (filterEndDate && art.dateObj > filterEndDate) return false;
+                    return true;
+                });
+            }
+
+            // Render Category Pill Bar and Channel Dropdown List
+            renderCategoryPillBar(dateFilteredArticles);
+            renderChannelDropdownList(dateFilteredArticles);
+
+            // 2. Filter by Active Categories AND Active Channels
+            const activeArticles = dateFilteredArticles.filter(art =>
+                activeSelectedCategories.has(art.visualCategory) &&
+                activeSelectedChannels.has(art.channel)
+            );
+
+            // Recompute Metrics & Aggregates based on activeArticles
+            const channelMap = {};
+            const visualCatMap = {};
+            const channelMatrixMap = {};
+            const dayBuckets = {};
+            const hourBuckets = {};
+
+            activeArticles.forEach(art => {
+                const { date, visualCategory, channel, dateObj } = art;
+
+                channelMap[channel] = (channelMap[channel] || 0) + 1;
+                visualCatMap[visualCategory] = (visualCatMap[visualCategory] || 0) + 1;
+
+                if (!channelMatrixMap[channel]) channelMatrixMap[channel] = {};
+                channelMatrixMap[channel][visualCategory] = (channelMatrixMap[channel][visualCategory] || 0) + 1;
+
+                if (dateObj) {
+                    const yr = dateObj.getFullYear();
+                    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+                    const day = String(dateObj.getDate()).padStart(2, '0');
+                    const dayKey = `${yr}-${m}-${day}`;
+
+                    const thaiMonth = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'][dateObj.getMonth()] || `${dateObj.getMonth() + 1}`;
+                    const dayLabel = `${dateObj.getDate()} ${thaiMonth}`;
+
+                    if (!dayBuckets[dayKey]) {
+                        dayBuckets[dayKey] = {
+                            label: dayLabel,
+                            timestamp: new Date(yr, dateObj.getMonth(), dateObj.getDate()).getTime(),
+                            count: 0
+                        };
+                    }
+                    dayBuckets[dayKey].count++;
+
+                    const hourSlot = Math.floor(dateObj.getHours() / 2) * 2;
+                    const hourKey = `${String(hourSlot).padStart(2, '0')}:00`;
+                    hourBuckets[hourKey] = (hourBuckets[hourKey] || 0) + 1;
+                }
+            });
+
+            // Build Chronological Timeline Data
+            const uniqueDayKeys = Object.keys(dayBuckets);
+            let timelineLabels = [];
+            let timelineValues = [];
+
+            if (uniqueDayKeys.length <= 1) {
+                // Single day (e.g. Yesterday or Today): Show 2-hour interval time curve from 00:00 to 22:00
+                const slots = ['00:00', '02:00', '04:00', '06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00'];
+                timelineLabels = slots;
+                timelineValues = slots.map(s => hourBuckets[s] || 0);
+            } else {
+                // Multi-day: Sort strictly by timestamp in ascending chronological order (oldest to newest)
+                const sortedDays = Object.values(dayBuckets).sort((a, b) => a.timestamp - b.timestamp);
+                timelineLabels = sortedDays.map(d => d.label);
+                timelineValues = sortedDays.map(d => d.count);
+            }
+
+            const timelineData = { labels: timelineLabels, values: timelineValues };
+
+            // Update KPI Counters
+            document.getElementById('kpiTotalArticles').textContent = activeArticles.length.toLocaleString();
+            document.getElementById('kpiTotalChannels').textContent = `${Object.keys(channelMap).length} / ${allUniqueChannels.length}`;
+            document.getElementById('kpiTotalCategories').textContent = `${activeSelectedCategories.size} / ${STANDARD_CATEGORIES.length}`;
+
+            const rangeLabel = (filterStartDate || filterEndDate) ? `In Selected Date Range` : `All Verified Sources`;
+            document.getElementById('kpiArticlesSub').textContent = rangeLabel;
+            document.getElementById('heatmapSectionTitle').textContent = `News Outlet Coverage Matrix (${Object.keys(channelMap).length} Channels • ${activeSelectedCategories.size} Categories)`;
+
+            // Update Select Dropdowns
+            updateSelectFilters(channelMap, visualCatMap);
+
+            // Render Heatmap Matrix Table
+            renderHeatmapMatrix(channelMap, channelMatrixMap);
+
+            // Cache for Presentation Mode
+            cachedVisualCatMap = visualCatMap;
+            cachedChannelMap = channelMap;
+            cachedTimelineData = timelineData;
+            cachedChannelMatrixMap = channelMatrixMap;
+
+            // Render Charts
+            renderCharts(visualCatMap, channelMap, timelineData);
+
+            // Apply Search/Category filter to Table
+            applyFilters();
+
+            // Update Presentation Mode if overlay is active
+            updatePresentationMode();
+
+            // Show Dashboard
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('dashboardContent').style.display = 'block';
+
+            const refreshBtn = document.getElementById('refreshBtn');
+            refreshBtn.disabled = false;
+            refreshBtn.textContent = '🔄 Sync from Sheet';
+        }
+
+        // Update Filter Dropdowns
+        function updateSelectFilters(channelMap, visualCatMap) {
+            const chSelect = document.getElementById('channelFilter');
+            const catSelect = document.getElementById('categoryFilter');
+
+            const currentCh = chSelect.value;
+            const currentCat = catSelect.value;
+
+            const availableChannels = allUniqueChannels.filter(c => activeSelectedChannels.has(c));
+
+            chSelect.innerHTML = `<option value="ALL">All Active Channels (${availableChannels.length})</option>`;
+            catSelect.innerHTML = `<option value="ALL">All Active Categories (${activeSelectedCategories.size})</option>`;
+
+            availableChannels
+                .sort((a, b) => (channelMap[b] || 0) - (channelMap[a] || 0))
+                .forEach(ch => {
+                    const count = channelMap[ch] || 0;
+                    const opt = document.createElement('option');
+                    opt.value = ch;
+                    opt.textContent = `${ch} (${count.toLocaleString()})`;
+                    chSelect.appendChild(opt);
+                });
+
+            STANDARD_CATEGORIES
+                .filter(c => activeSelectedCategories.has(c.name))
+                .forEach(cat => {
+                    const count = visualCatMap[cat.name] || 0;
+                    const opt = document.createElement('option');
+                    opt.value = cat.name;
+                    opt.textContent = `${cat.name} (${count.toLocaleString()})`;
+                    catSelect.appendChild(opt);
+                });
+
+            if ([...chSelect.options].some(o => o.value === currentCh)) chSelect.value = currentCh;
+            if ([...catSelect.options].some(o => o.value === currentCat)) catSelect.value = currentCat;
+        }
+
+        // Calculate Heatmap Cell Style
+        function getHeatmapStyle(val, maxVal) {
+            if (!val || val === 0) {
+                return 'background: rgba(255, 255, 255, 0.02); color: #4b5563;';
+            }
+            const ratio = Math.min(1, val / (maxVal || 1));
+            if (ratio < 0.15) {
+                return 'background: rgba(99, 102, 241, 0.18); color: #a5b4fc; font-weight: 500;';
+            } else if (ratio < 0.35) {
+                return 'background: rgba(99, 102, 241, 0.38); color: #c7d2fe; font-weight: 600;';
+            } else if (ratio < 0.65) {
+                return 'background: rgba(14, 165, 233, 0.52); color: #ffffff; font-weight: 700;';
+            } else if (ratio < 0.85) {
+                return 'background: rgba(168, 85, 247, 0.70); color: #ffffff; font-weight: 800;';
+            } else {
+                return 'background: linear-gradient(135deg, rgba(99, 102, 241, 0.9), rgba(236, 72, 153, 0.95)); color: #ffffff; font-weight: 800; box-shadow: 0 0 10px rgba(236, 72, 153, 0.4);';
+            }
+        }
+
+        // Render Heatmap Matrix Table
+        function renderHeatmapMatrix(channelMap, channelMatrixMap) {
+            const table = document.getElementById('heatmapMatrixTable');
+            table.innerHTML = '';
+
+            const visibleCats = STANDARD_CATEGORIES.filter(c => activeSelectedCategories.has(c.name));
+            const visibleChannels = allUniqueChannels.filter(c => activeSelectedChannels.has(c));
+
+            if (visibleChannels.length === 0 || visibleCats.length === 0) {
+                table.innerHTML = `<tbody><tr><td style="padding: 40px; text-align: center; color: var(--text-muted); font-size: 14px;">⚠️ No channels or categories selected. Please select at least one channel and category from the filters above.</td></tr></tbody>`;
+                return;
+            }
+
+            const sortedChannels = visibleChannels.sort((a, b) => (channelMap[b] || 0) - (channelMap[a] || 0));
+
+            // Find maximum individual cell value for relative heatmap scaling
+            let maxCellVal = 1;
+            sortedChannels.forEach(ch => {
+                const cats = channelMatrixMap[ch] || {};
+                visibleCats.forEach(cat => {
+                    const val = cats[cat.name] || 0;
+                    if (val > maxCellVal) maxCellVal = val;
+                });
+            });
+
+            // 1. Table Header
+            let thead = '<thead><tr>';
+            thead += '<th class="col-channel">News Outlet / Channel</th>';
+            visibleCats.forEach(cat => {
+                thead += `<th style="cursor: pointer;" onclick="filterByCategory('${cat.name}')" title="Filter by ${cat.name}">${cat.name}</th>`;
+            });
+            thead += '<th class="heatmap-total-col">Total</th>';
+            thead += '</tr></thead>';
+
+            // 2. Table Body Rows
+            let tbody = '<tbody>';
+            const colTotals = {};
+            visibleCats.forEach(c => colTotals[c.name] = 0);
+            let grandTotal = 0;
+
+            if (sortedChannels.length === 0) {
+                tbody += `<tr><td colspan="${visibleCats.length + 2}" style="padding: 40px; color: var(--text-muted);">No article data found in this selection.</td></tr>`;
+            } else {
+                sortedChannels.forEach(ch => {
+                    const rowTotal = channelMap[ch] || 0;
+                    grandTotal += rowTotal;
+                    const isTp = isThaiPbs(ch);
+                    const tpClass = isTp ? ' thaipbs-highlight' : '';
+                    tbody += '<tr>';
+                    tbody += `<td class="cell-channel${tpClass}" onclick="filterByChannel('${ch}')" title="Click to filter by ${ch}">${ch}</td>`;
+
+                    const cats = channelMatrixMap[ch] || {};
+                    visibleCats.forEach(cat => {
+                        const val = cats[cat.name] || 0;
+                        colTotals[cat.name] += val;
+                        const style = getHeatmapStyle(val, maxCellVal);
+                        const displayTxt = val > 0 ? val.toLocaleString() : '-';
+                        tbody += `
+                    <td>
+                        <div class="heatmap-cell" style="${style}" onclick="filterByChannelAndCat('${ch}', '${cat.name}')" title="${ch} • ${cat.name}: ${val} articles">
+                            ${displayTxt}
+                        </div>
+                    </td>
+                `;
+                    });
+
+                    tbody += `<td class="heatmap-total-col" style="padding: 10px 8px; font-weight: 800;" onclick="filterByChannel('${ch}')">${rowTotal.toLocaleString()}</td>`;
+                    tbody += '</tr>';
+                });
+            }
+            tbody += '</tbody>';
+
+            // 3. Table Footer Row (Category Totals)
+            let tfoot = '<tfoot><tr class="heatmap-footer-row">';
+            tfoot += '<td class="cell-channel" style="color: var(--accent-secondary);">TOTAL</td>';
+            visibleCats.forEach(cat => {
+                const catTot = colTotals[cat.name] || 0;
+                tfoot += `<td onclick="filterByCategory('${cat.name}')" style="cursor: pointer;" title="Total for ${cat.name}">${catTot.toLocaleString()}</td>`;
+            });
+            tfoot += `<td class="heatmap-total-col" style="color: #ffffff; font-size: 14px;">${grandTotal.toLocaleString()}</td>`;
+            tfoot += '</tr></tfoot>';
+
+            table.innerHTML = thead + tbody + tfoot;
+        }
+
+        // Matrix Cell Click Filters
+        function filterByChannel(ch) {
+            document.getElementById('channelFilter').value = ch;
+            document.getElementById('categoryFilter').value = 'ALL';
+            applyFilters();
+            document.querySelector('.explorer-card').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function filterByCategory(cat) {
+            document.getElementById('channelFilter').value = 'ALL';
+            document.getElementById('categoryFilter').value = cat;
+            applyFilters();
+            document.querySelector('.explorer-card').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function filterByChannelAndCat(ch, cat) {
+            document.getElementById('channelFilter').value = ch;
+            document.getElementById('categoryFilter').value = cat;
+            applyFilters();
+            document.querySelector('.explorer-card').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Filter and Table Rendering
+        function applyFilters() {
+            const query = document.getElementById('searchInput').value.toLowerCase().trim();
+            const chVal = document.getElementById('channelFilter').value;
+            const catVal = document.getElementById('categoryFilter').value;
+
+            searchFilteredArticles = dateFilteredArticles
+                .filter(art => activeSelectedCategories.has(art.visualCategory) && activeSelectedChannels.has(art.channel))
+                .filter(art => {
+                    const matchesQuery = !query || art.title.toLowerCase().includes(query) || art.channel.toLowerCase().includes(query) || art.category.toLowerCase().includes(query);
+                    const matchesCh = chVal === 'ALL' || art.channel === chVal;
+                    const matchesCat = catVal === 'ALL' || art.visualCategory === catVal || art.category === catVal;
+                    return matchesQuery && matchesCh && matchesCat;
+                });
+
+            currentPage = 1;
+            renderTable();
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('articleTableBody');
+            tbody.innerHTML = '';
+
+            const total = searchFilteredArticles.length;
+            const start = (currentPage - 1) * pageSize;
+            const end = Math.min(start + pageSize, total);
+            const pageItems = searchFilteredArticles.slice(start, end);
+
+            if (pageItems.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 40px; color: var(--text-muted);">No matching articles found in this selection.</td></tr>`;
+            } else {
+                pageItems.forEach(art => {
+                    const tr = document.createElement('tr');
+                    const isTp = isThaiPbs(art.channel);
+                    const chStyle = isTp ? 'font-weight: 700; color: #E95A0A;' : 'font-weight: 600; color: var(--text-primary);';
+                    tr.innerHTML = `
+                <td style="color: var(--text-secondary); font-size: 12px; white-space: nowrap;">${art.date}</td>
+                <td><span class="cat-pill ${getCatClass(art.category)}" title="Topic: ${art.visualCategory}">${art.category}</span></td>
+                <td style="${chStyle}">${art.channel}</td>
+                <td>
+                    <a href="${art.link}" target="_blank" class="article-title-link" title="${art.title}">
+                        ${art.title} ↗
+                    </a>
+                </td>
+            `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            document.getElementById('tableInfo').textContent = total > 0
+                ? `Showing ${start + 1} to ${end} of ${total.toLocaleString()} articles`
+                : 'Showing 0 articles';
+
+            document.getElementById('prevBtn').disabled = currentPage <= 1;
+            document.getElementById('nextBtn').disabled = end >= total;
+        }
+
+        function changePage(delta) {
+            currentPage += delta;
+            renderTable();
+        }
+
+        // Render Charts
+        function renderCharts(visualCatMap, channelMap, timelineData) {
+            Chart.defaults.color = '#9ca3af';
+            Chart.defaults.font.family = "'Plus Jakarta Sans', 'Prompt', sans-serif";
+
+            // 1. Categories Pie Chart with Slice Numbers & Percentages
+            const visibleCats = STANDARD_CATEGORIES.filter(c => activeSelectedCategories.has(c.name));
+            const catLabels = visibleCats.map(c => c.name);
+            const catValues = visibleCats.map(c => visualCatMap[c.name] || 0);
+            const catColors = visibleCats.map(c => c.color);
+
+            // Custom Plugin: Render Number & Percent directly on each pie slice if it fits inside boundaries
+            const pieDataLabelsPlugin = {
+                id: 'pieDataLabels',
+                afterDraw(chart) {
+                    const { ctx } = chart;
+                    const meta = chart.getDatasetMeta(0);
+                    if (!meta || !meta.data || !meta.data.length) return;
+                    const dataset = chart.data.datasets[0];
+                    const total = dataset.data.reduce((acc, val) => acc + (Number(val) || 0), 0);
+                    if (total === 0) return;
+
+                    ctx.save();
+                    ctx.font = 'bold 13px "Plus Jakarta Sans", "Prompt", sans-serif';
+
+                    meta.data.forEach((element, index) => {
+                        const val = dataset.data[index];
+                        if (!val || val === 0) return;
+                        const pct = (val / total) * 100;
+
+                        const { startAngle, endAngle, outerRadius, innerRadius, x, y } = element;
+                        const angleSpan = endAngle - startAngle;
+
+                        // Position text at ~62% of slice radius
+                        const radius = (innerRadius || 0) + (outerRadius - (innerRadius || 0)) * 0.62;
+                        const text = `${val.toLocaleString()}(${pct.toFixed(1)}%)`;
+
+                        // Boundary Detection: Calculate text width and available arc width at this radius
+                        const textMetrics = ctx.measureText(text);
+                        const textWidth = textMetrics.width;
+                        const textHeight = 16;
+                        const availableArcWidth = radius * angleSpan;
+
+                        // If text exceeds the slice arc width or the slice angle is too narrow, don't show the text
+                        if (textWidth > (availableArcWidth * 0.88) || angleSpan < 0.32) {
+                            return; // Exceeds part boundary, hide label to prevent overlapping
+                        }
+
+                        const midAngle = startAngle + angleSpan / 2;
+                        const posX = x + Math.cos(midAngle) * radius;
+                        const posY = y + Math.sin(midAngle) * radius;
+
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+
+                        // High contrast dark stroke outline for crystal-clear readability
+                        ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+                        ctx.lineWidth = 3.5;
+                        ctx.lineJoin = 'round';
+                        ctx.strokeText(text, posX, posY);
+
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillText(text, posX, posY);
+                    });
+                    ctx.restore();
+                }
+            };
+
+            if (catChartInstance) catChartInstance.destroy();
+            catChartInstance = new Chart(document.getElementById('categoryChart'), {
+                type: 'pie',
+                data: {
+                    labels: catLabels,
+                    datasets: [{
+                        data: catValues,
+                        backgroundColor: catColors,
+                        borderColor: 'rgba(17, 24, 39, 0.6)',
+                        borderWidth: 1,
+                        hoverOffset: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { boxWidth: 12, padding: 10, font: { size: 11 } }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function (context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed !== undefined ? context.parsed : (context.raw || 0);
+                                    const total = context.dataset.data.reduce((acc, v) => acc + (Number(v) || 0), 0);
+                                    const pct = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+                                    return ` ${label}: ${Number(value).toLocaleString()} (${pct}%)`;
+                                }
+                            }
+                        }
+                    }
+                },
+                plugins: [pieDataLabelsPlugin]
+            });
+
+            // 2. Channels Horizontal Bar Chart with Exact Numbers & ThaiPBS Text Highlight in #E95A0A
+            const topChannels = Object.entries(channelMap).sort((a, b) => b[1] - a[1]).slice(0, 15);
+
+            // Custom Plugin: Render exact numbers beside the end of each bar
+            const barDataLabelsPlugin = {
+                id: 'barDataLabels',
+                afterDatasetsDraw(chart) {
+                    const { ctx } = chart;
+                    const meta = chart.getDatasetMeta(0);
+                    if (!meta || !meta.data || !meta.data.length) return;
+
+                    ctx.save();
+                    meta.data.forEach((bar, index) => {
+                        const val = chart.data.datasets[0].data[index];
+                        if (val === undefined || val === null) return;
+
+                        const xPos = bar.x + 8;
+                        const yPos = bar.y;
+
+                        ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
+                        ctx.fillStyle = '#e5e7eb'; // Clean light gray for all numbers beside bars
+                        ctx.textAlign = 'left';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(val.toLocaleString(), xPos, yPos);
+                    });
+                    ctx.restore();
+                }
+            };
+
+            if (chChartInstance) chChartInstance.destroy();
+            chChartInstance = new Chart(document.getElementById('channelChart'), {
+                type: 'bar',
+                data: {
+                    labels: topChannels.map(c => c[0]),
+                    datasets: [{
+                        label: 'Articles',
+                        data: topChannels.map(c => c[1]),
+                        backgroundColor: topChannels.map(c => isThaiPbs(c[0]) ? '#E95A0A' : 'rgba(99, 102, 241, 0.75)'),
+                        borderColor: topChannels.map(c => isThaiPbs(c[0]) ? '#E95A0A' : '#6366f1'),
+                        hoverBackgroundColor: topChannels.map(c => isThaiPbs(c[0]) ? '#ff7828' : 'rgba(99, 102, 241, 0.9)'),
+                        borderWidth: 1,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    layout: {
+                        padding: {
+                            right: 48 // Extra headroom so numbers beside bars never clip
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grace: '12%',
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                        },
+                        y: {
+                            grid: { display: false },
+                            ticks: {
+                                color: (context) => {
+                                    const label = topChannels[context.index] ? topChannels[context.index][0] : '';
+                                    return isThaiPbs(label) ? '#E95A0A' : '#9ca3af';
+                                },
+                                font: (context) => {
+                                    const label = topChannels[context.index] ? topChannels[context.index][0] : '';
+                                    return isThaiPbs(label)
+                                        ? { family: "'Plus Jakarta Sans', sans-serif", weight: 'bold', size: 12 }
+                                        : { family: "'Plus Jakarta Sans', sans-serif", size: 12 };
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                },
+                plugins: [barDataLabelsPlugin]
+            });
+
+            // 3. Timeline Trend Chart (Chronological)
+            if (timelineChartInstance) timelineChartInstance.destroy();
+            timelineChartInstance = new Chart(document.getElementById('timelineChart'), {
+                type: 'line',
+                data: {
+                    labels: timelineData ? timelineData.labels : [],
+                    datasets: [{
+                        label: 'Articles Published',
+                        data: timelineData ? timelineData.values : [],
+                        borderColor: '#0ea5e9',
+                        backgroundColor: 'rgba(14, 165, 233, 0.12)',
+                        fill: true,
+                        tension: 0.35,
+                        borderWidth: 2.5,
+                        pointBackgroundColor: '#0ea5e9',
+                        pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { grid: { color: 'rgba(255, 255, 255, 0.05)' } },
+                        y: { grid: { color: 'rgba(255, 255, 255, 0.05)' } }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        // ==========================================
+        // 16:9 Presentation / Slideshow Mode Controller
+        // ==========================================
+        function togglePresentationMode(show) {
+            const overlay = document.getElementById('presentationOverlay');
+            if (show) {
+                overlay.classList.add('active');
+                document.body.style.overflow = 'hidden';
+                updatePresentationMode();
+                goToSlide(currentSlideIndex);
+            } else {
+                overlay.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        }
+
+        function goToSlide(idx) {
+            if (idx < 0) idx = 0;
+            if (idx >= totalSlides) idx = totalSlides - 1;
+            currentSlideIndex = idx;
+
+            for (let i = 0; i < totalSlides; i++) {
+                const slide = document.getElementById(`presSlide-${i}`);
+                if (slide) {
+                    if (i === currentSlideIndex) {
+                        slide.classList.add('active-slide');
+                    } else {
+                        slide.classList.remove('active-slide');
+                    }
+                }
+            }
+
+            // Update Navigation UI in Upper Right Corner
+            document.getElementById('presPageBadge').textContent = `Slide ${currentSlideIndex + 1} / ${totalSlides}`;
+            document.getElementById('presPrevBtn').disabled = currentSlideIndex === 0;
+            document.getElementById('presNextBtn').disabled = currentSlideIndex === totalSlides - 1;
+
+            // Resize / re-render charts for the active slide
+            setTimeout(() => {
+                if (currentSlideIndex === 0) {
+                    if (presCatChartInstance) presCatChartInstance.resize();
+                    if (presTimelineChartInstance) presTimelineChartInstance.resize();
+                } else if (currentSlideIndex === 1) {
+                    if (presChChartInstance) presChChartInstance.resize();
+                }
+            }, 50);
+        }
+
+        function nextSlide() {
+            if (currentSlideIndex < totalSlides - 1) {
+                goToSlide(currentSlideIndex + 1);
+            }
+        }
+
+        function prevSlide() {
+            if (currentSlideIndex > 0) {
+                goToSlide(currentSlideIndex - 1);
+            }
+        }
+
+        function updatePresentationMode() {
+            const overlay = document.getElementById('presentationOverlay');
+            if (!overlay) return;
+
+            // 1. Sync Badges & Date/Category Info
+            const rangeText = (filterStartDate || filterEndDate)
+                ? `${document.getElementById('startDateInput').value} to ${document.getElementById('endDateInput').value}`
+                : 'All Time';
+            document.getElementById('presFilterBadge').textContent = `${rangeText} • ${activeSelectedChannels.size} Outlets • ${activeSelectedCategories.size} Categories`;
+
+            // 2. Sync Slide 1 KPIs
+            document.getElementById('presKpiTotalArticles').textContent = document.getElementById('kpiTotalArticles').textContent;
+            document.getElementById('presKpiTotalChannels').textContent = document.getElementById('kpiTotalChannels').textContent;
+            document.getElementById('presKpiTotalCategories').textContent = document.getElementById('kpiTotalCategories').textContent;
+
+            let thaiPbsCount = 0;
+            for (const [ch, cnt] of Object.entries(cachedChannelMap)) {
+                if (isThaiPbs(ch)) {
+                    thaiPbsCount += cnt;
+                }
+            }
+            document.getElementById('presKpiThaiPbs').textContent = thaiPbsCount.toLocaleString();
+
+            // 3. Render Presentation Charts (Slide 1 & 2)
+            renderPresCharts(cachedVisualCatMap, cachedChannelMap, cachedTimelineData);
+
+            // 4. Sync Slide 2 Spotlights
+            const sortedChannels = Object.entries(cachedChannelMap).sort((a, b) => b[1] - a[1]);
+            if (sortedChannels.length > 0) {
+                document.getElementById('presTopChannelName').textContent = sortedChannels[0][0];
+                document.getElementById('presTopChannelCount').textContent = `${sortedChannels[0][1].toLocaleString()} articles`;
+            } else {
+                document.getElementById('presTopChannelName').textContent = '-';
+                document.getElementById('presTopChannelCount').textContent = '0 articles';
+            }
+
+            document.getElementById('presThaiPbsStat').textContent = `${thaiPbsCount.toLocaleString()} articles`;
+            const thaiPbsRankIdx = sortedChannels.findIndex(item => isThaiPbs(item[0]));
+            if (thaiPbsRankIdx >= 0) {
+                document.getElementById('presThaiPbsRank').textContent = `Ranked #${thaiPbsRankIdx + 1} among active outlets`;
+            } else {
+                document.getElementById('presThaiPbsRank').textContent = `Public broadcasting service coverage`;
+            }
+
+            // 5. Sync Slide 3 Heatmap Matrix
+            const presHeatmap = document.getElementById('presHeatmapMatrixTable');
+            if (presHeatmap) {
+                presHeatmap.innerHTML = document.getElementById('heatmapMatrixTable').innerHTML;
+            }
+
+            // 6. Sync Slide 4 Explorer Table
+            const presTableBody = document.getElementById('presArticleTableBody');
+            if (presTableBody) {
+                presTableBody.innerHTML = document.getElementById('articleTableBody').innerHTML;
+            }
+
+            // 7. Update Presentation Bottom-Left Date Range (clean format without clutter)
+            const presFooterDateEl = document.getElementById('presFooterDateRange');
+            if (presFooterDateEl) {
+                presFooterDateEl.textContent = getFormattedDateRangeText();
+            }
+        }
+
+        function renderPresCharts(visualCatMap, channelMap, timelineData) {
+            if (!visualCatMap || !channelMap) return;
+
+            // Pres Pie Chart (Slide 1)
+            const visibleCats = STANDARD_CATEGORIES.filter(c => activeSelectedCategories.has(c.name));
+            const catLabels = visibleCats.map(c => c.name);
+            const catValues = visibleCats.map(c => visualCatMap[c.name] || 0);
+            const catColors = visibleCats.map(c => c.color);
+
+            const presPieDataLabelsPlugin = {
+                id: 'presPieDataLabels',
+                afterDraw(chart) {
+                    const { ctx } = chart;
+                    const meta = chart.getDatasetMeta(0);
+                    if (!meta || !meta.data || !meta.data.length) return;
+                    const dataset = chart.data.datasets[0];
+                    const total = dataset.data.reduce((acc, val) => acc + (Number(val) || 0), 0);
+                    if (total === 0) return;
+
+                    ctx.save();
+                    ctx.font = 'bold 12px "Plus Jakarta Sans", "Prompt", sans-serif';
+
+                    meta.data.forEach((element, index) => {
+                        const val = dataset.data[index];
+                        if (!val || val === 0) return;
+                        const pct = (val / total) * 100;
+
+                        const { startAngle, endAngle, outerRadius, innerRadius, x, y } = element;
+                        const angleSpan = endAngle - startAngle;
+
+                        const radius = (innerRadius || 0) + (outerRadius - (innerRadius || 0)) * 0.62;
+                        const text = `${val.toLocaleString()}(${pct.toFixed(1)}%)`;
+
+                        const textMetrics = ctx.measureText(text);
+                        const textWidth = textMetrics.width;
+                        const availableArcWidth = radius * angleSpan;
+
+                        if (textWidth > (availableArcWidth * 0.88) || angleSpan < 0.32) {
+                            return;
+                        }
+
+                        const midAngle = startAngle + angleSpan / 2;
+                        const posX = x + Math.cos(midAngle) * radius;
+                        const posY = y + Math.sin(midAngle) * radius;
+
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+
+                        ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+                        ctx.lineWidth = 3.5;
+                        ctx.lineJoin = 'round';
+                        ctx.strokeText(text, posX, posY);
+
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillText(text, posX, posY);
+                    });
+                    ctx.restore();
+                }
+            };
+
+            if (presCatChartInstance) presCatChartInstance.destroy();
+            const presCatCanvas = document.getElementById('presCategoryChart');
+            if (presCatCanvas) {
+                presCatChartInstance = new Chart(presCatCanvas, {
+                    type: 'pie',
+                    data: {
+                        labels: catLabels,
+                        datasets: [{
+                            data: catValues,
+                            backgroundColor: catColors,
+                            borderColor: 'rgba(17, 24, 39, 0.6)',
+                            borderWidth: 1,
+                            hoverOffset: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { boxWidth: 12, padding: 8, font: { size: 11 } }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (context) {
+                                        const label = context.label || '';
+                                        const value = context.parsed !== undefined ? context.parsed : (context.raw || 0);
+                                        const total = context.dataset.data.reduce((acc, v) => acc + (Number(v) || 0), 0);
+                                        const pct = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+                                        return ` ${label}: ${Number(value).toLocaleString()} (${pct}%)`;
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    plugins: [presPieDataLabelsPlugin]
+                });
+            }
+
+            // Pres Timeline Chart (Slide 1)
+            if (presTimelineChartInstance) presTimelineChartInstance.destroy();
+            const presTimelineCanvas = document.getElementById('presTimelineChart');
+            if (presTimelineCanvas) {
+                presTimelineChartInstance = new Chart(presTimelineCanvas, {
+                    type: 'line',
+                    data: {
+                        labels: timelineData ? timelineData.labels : [],
+                        datasets: [{
+                            label: 'Articles Published',
+                            data: timelineData ? timelineData.values : [],
+                            borderColor: '#0ea5e9',
+                            backgroundColor: 'rgba(14, 165, 233, 0.12)',
+                            fill: true,
+                            tension: 0.35,
+                            borderWidth: 2.5,
+                            pointBackgroundColor: '#0ea5e9',
+                            pointRadius: 3.5
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: { grid: { color: 'rgba(255, 255, 255, 0.05)' } },
+                            y: { grid: { color: 'rgba(255, 255, 255, 0.05)' } }
+                        },
+                        plugins: {
+                            legend: { display: false }
+                        }
+                    }
+                });
+            }
+
+            // Pres Channel Chart (Slide 2)
+            const topChannels = Object.entries(channelMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
+            const presBarDataLabelsPlugin = {
+                id: 'presBarDataLabels',
+                afterDatasetsDraw(chart) {
+                    const { ctx } = chart;
+                    const meta = chart.getDatasetMeta(0);
+                    if (!meta || !meta.data || !meta.data.length) return;
+
+                    ctx.save();
+                    meta.data.forEach((bar, index) => {
+                        const val = chart.data.datasets[0].data[index];
+                        if (val === undefined || val === null) return;
+
+                        const xPos = bar.x + 8;
+                        const yPos = bar.y;
+
+                        ctx.font = '600 11px "Plus Jakarta Sans", sans-serif';
+                        ctx.fillStyle = '#e5e7eb';
+                        ctx.textAlign = 'left';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(val.toLocaleString(), xPos, yPos);
+                    });
+                    ctx.restore();
+                }
+            };
+
+            if (presChChartInstance) presChChartInstance.destroy();
+            const presChCanvas = document.getElementById('presChannelChart');
+            if (presChCanvas) {
+                presChChartInstance = new Chart(presChCanvas, {
+                    type: 'bar',
+                    data: {
+                        labels: topChannels.map(c => c[0]),
+                        datasets: [{
+                            label: 'Articles',
+                            data: topChannels.map(c => c[1]),
+                            backgroundColor: topChannels.map(c => isThaiPbs(c[0]) ? '#E95A0A' : 'rgba(99, 102, 241, 0.75)'),
+                            borderColor: topChannels.map(c => isThaiPbs(c[0]) ? '#E95A0A' : '#6366f1'),
+                            borderWidth: 1,
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: 'y',
+                        layout: {
+                            padding: { right: 48 }
+                        },
+                        scales: {
+                            x: {
+                                grace: '12%',
+                                grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                            },
+                            y: {
+                                grid: { display: false },
+                                ticks: {
+                                    color: (context) => {
+                                        const label = topChannels[context.index] ? topChannels[context.index][0] : '';
+                                        return isThaiPbs(label) ? '#E95A0A' : '#9ca3af';
+                                    },
+                                    font: (context) => {
+                                        const label = topChannels[context.index] ? topChannels[context.index][0] : '';
+                                        return isThaiPbs(label)
+                                            ? { family: "'Plus Jakarta Sans', sans-serif", weight: 'bold', size: 12 }
+                                            : { family: "'Plus Jakarta Sans', sans-serif", size: 12 };
+                                    }
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: { display: false }
+                        }
+                    },
+                    plugins: [presBarDataLabelsPlugin]
+                });
+            }
+        }
+
+        /* ===================================================================
+           PAGE 2 — Live View Stats
+           =================================================================== */
+        let vsRawRows = [];
+        let vsLoaded = false;
+        let vsLoading = false;
+        let vsSelectedChannel = '__ALL__';
+        let vsPreset = 'all';                       // 'all' | '7d' | 'yesterday' | 'today' | 'custom'
+        let vsCustomFrom = null;
+        let vsCustomTo = null;
+        let vsSelectedPlatforms = new Set(['facebook', 'youtube', 'x', 'tiktok']);
+        let vsFetchTimeoutId = null;
+        let vsSortKey = 'air';   // 'title' | 'air' | 'platform' | 'views' | 'peak'
+        let vsSortDir = 'asc';   // 'asc' | 'desc'
+
+        const VS_PLATFORM_LABEL = { facebook: 'Facebook', youtube: 'YouTube', x: 'X', tiktok: 'TikTok' };
+
+        // ค่า default การเรียงของแต่ละคอลัมน์ (กดครั้งแรกให้ใช้ทิศนี้)
+        const VS_SORT_DEFAULT_DIR = { title: 'asc', air: 'asc', platform: 'asc', views: 'desc', peak: 'desc' };
+
+        function vsSortBy(key) {
+            if (vsSortKey === key) {
+                vsSortDir = vsSortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                vsSortKey = key;
+                vsSortDir = VS_SORT_DEFAULT_DIR[key] || 'asc';
+            }
+            vsRender();
+        }
+
+        function vsUpdateSortHeaders() {
+            document.querySelectorAll('table.vs-table th.sortable').forEach(th => {
+                const key = th.dataset.sort;
+                const ind = th.querySelector('.vs-sort-ind');
+                if (key === vsSortKey) {
+                    th.classList.add('sorted');
+                    ind.textContent = vsSortDir === 'asc' ? '▲' : '▼';
+                } else {
+                    th.classList.remove('sorted');
+                    ind.textContent = '⇅';
+                }
+            });
+        }
+
+        function switchPage(page) {
+            const isNews = page === 'news';
+            document.getElementById('page-news').hidden = !isNews;
+            document.getElementById('page-viewstats').hidden = isNews;
+            document.getElementById('navNews').classList.toggle('active', isNews);
+            document.getElementById('navViewStats').classList.toggle('active', !isNews);
+            window.scrollTo(0, 0);
+
+            if (!isNews && !vsLoaded && !vsLoading) fetchViewStats();
+        }
+
+        // ---- Fetch จาก Apps Script Web App (doGet ?action=view_stats) ----
+        async function fetchViewStats() {
+            if (vsLoading) return;
+            vsLoading = true;
+
+            const btn = document.getElementById('vsRefreshBtn');
+            btn.disabled = true;
+            btn.textContent = '🔄 Syncing...';
+
+            document.getElementById('vsError').hidden = true;
+            document.getElementById('vsEmpty').hidden = true;
+            document.getElementById('vsTableWrap').hidden = true;
+            document.getElementById('vsLoading').hidden = false;
+
+            try {
+                const res = await fetch(`${VIEW_STATS_API}?action=view_stats&_=${Date.now()}`, { redirect: 'follow' });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const payload = await res.json();
+                handleViewStatsPayload(payload);
+            } catch (err) {
+                // สำรอง: JSONP (กรณี fetch ถูกบล็อกด้วย CORS — ต้อง re-deploy .gs เวอร์ชันที่รองรับ callback)
+                tryViewStatsJsonp();
+            }
+        }
+
+        function tryViewStatsJsonp() {
+            const old = document.getElementById('vs-jsonp-script');
+            if (old) old.remove();
+            if (vsFetchTimeoutId) clearTimeout(vsFetchTimeoutId);
+            vsFetchTimeoutId = setTimeout(
+                () => vsShowError('เชื่อมต่อ Apps Script ไม่สำเร็จ — ตรวจสอบอินเทอร์เน็ต / การ Deploy'), 20000);
+
+            const s = document.createElement('script');
+            s.id = 'vs-jsonp-script';
+            s.src = `${VIEW_STATS_API}?action=view_stats&callback=handleViewStatsResponse&_=${Date.now()}`;
+            s.onerror = () => vsShowError('โหลดข้อมูลจาก Apps Script ไม่สำเร็จ');
+            document.head.appendChild(s);
+        }
+
+        window.handleViewStatsResponse = function (payload) {
+            if (vsFetchTimeoutId) clearTimeout(vsFetchTimeoutId);
+            handleViewStatsPayload(payload);
+        };
+
+        function handleViewStatsPayload(payload) {
+            vsLoading = false;
+            const btn = document.getElementById('vsRefreshBtn');
+            btn.disabled = false;
+            btn.textContent = '🔄 Sync from Sheet';
+
+            if (!payload || !payload.ok || !Array.isArray(payload.data)) {
+                vsShowError((payload && payload.error) ? payload.error : 'รูปแบบข้อมูลไม่ถูกต้อง');
+                return;
+            }
+
+            vsRawRows = payload.data;
+            vsLoaded = true;
+            document.getElementById('vsLoading').hidden = true;
+
+            const t = new Date();
+            document.getElementById('vsSyncBadge').innerHTML =
+                `<span class="dot-pulse"></span> Live Sheet Synced (${t.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })})`;
+
+            vsBuildChannelChips();
+            vsRender();
+        }
+
+        function vsShowError(msg) {
+            if (vsFetchTimeoutId) clearTimeout(vsFetchTimeoutId);
+            vsLoading = false;
+            document.getElementById('vsLoading').hidden = true;
+            document.getElementById('vsTableWrap').hidden = true;
+            document.getElementById('vsEmpty').hidden = true;
+            const el = document.getElementById('vsError');
+            el.hidden = false;
+            el.textContent = '⚠️ ' + msg;
+            const btn = document.getElementById('vsRefreshBtn');
+            btn.disabled = false;
+            btn.textContent = '🔄 Sync from Sheet';
+        }
+
+        // ---- Controls ----
+        function vsBuildChannelChips() {
+            const channels = Array.from(new Set(vsRawRows.map(r => r.channel).filter(Boolean)))
+                .sort((a, b) => a.localeCompare(b, 'th'));
+            if (!channels.includes(vsSelectedChannel) && vsSelectedChannel !== '__ALL__') {
+                vsSelectedChannel = '__ALL__';
+            }
+            const wrap = document.getElementById('vsChannelChips');
+            wrap.innerHTML = '';
+
+            const mk = (value, label) => {
+                const b = document.createElement('button');
+                b.className = 'vs-chip' + (vsSelectedChannel === value ? ' active' : '');
+                b.textContent = label;
+                b.onclick = () => {
+                    vsSelectedChannel = value;
+                    wrap.querySelectorAll('.vs-chip').forEach(c => c.classList.remove('active'));
+                    b.classList.add('active');
+                    vsRender();
+                };
+                wrap.appendChild(b);
+            };
+            mk('__ALL__', 'ทุกช่อง');
+            channels.forEach(ch => mk(ch, ch));
+        }
+
+        function setVsPreset(preset, btn) {
+            vsPreset = preset;
+            vsCustomFrom = null;
+            vsCustomTo = null;
+            document.getElementById('vsFrom').value = '';
+            document.getElementById('vsTo').value = '';
+            document.querySelectorAll('#page-viewstats .vs-timeframe .vs-chip').forEach(c => c.classList.remove('active'));
+            if (btn) btn.classList.add('active');
+            vsRender();
+        }
+
+        function onVsCustomDate() {
+            const f = document.getElementById('vsFrom').value;
+            const t = document.getElementById('vsTo').value;
+            vsCustomFrom = f ? new Date(f + 'T00:00:00') : null;
+            vsCustomTo = t ? new Date(t + 'T23:59:59') : null;
+            if (vsCustomFrom || vsCustomTo) {
+                vsPreset = 'custom';
+                document.querySelectorAll('#page-viewstats .vs-timeframe .vs-chip').forEach(c => c.classList.remove('active'));
+            }
+            vsRender();
+        }
+
+        function clearVsTimeRange() {
+            document.getElementById('vsTimeFrom').value = '';
+            document.getElementById('vsTimeTo').value = '';
+            vsRender();
+        }
+
+        function toggleVsPlatform(platform, btn) {
+            if (vsSelectedPlatforms.has(platform)) {
+                if (vsSelectedPlatforms.size === 1) return; // อย่างน้อยต้องเลือก 1
+                vsSelectedPlatforms.delete(platform);
+                btn.classList.remove('active');
+            } else {
+                vsSelectedPlatforms.add(platform);
+                btn.classList.add('active');
+            }
+            vsRender();
+        }
+
+        // ---- Filtering + render ----
+        function vsRowInTimeframe(dateStr) {
+            if (vsPreset === 'all') return true;
+            const d = parseArticleDate(dateStr);
+            if (!d) return false;
+
+            const now = new Date();
+            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+            if (vsPreset === 'today') return d >= todayStart;
+            if (vsPreset === 'yesterday') {
+                const y = new Date(todayStart); y.setDate(y.getDate() - 1);
+                return d >= y && d < todayStart;
+            }
+            if (vsPreset === '7d') {
+                const p = new Date(todayStart); p.setDate(p.getDate() - 6);
+                return d >= p;
+            }
+            if (vsPreset === 'custom') {
+                if (vsCustomFrom && d < vsCustomFrom) return false;
+                if (vsCustomTo && d > vsCustomTo) return false;
+                return true;
+            }
+            return true;
+        }
+
+        const VS_THAI_MONTHS = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
+            'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+
+        function vsFormatDateThai(dateStr) {
+            const d = parseArticleDate(dateStr);
+            if (!d) return dateStr || '';
+            return `${d.getDate()} ${VS_THAI_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+        }
+
+        function vsRender() {
+            if (!vsLoaded) return;
+
+            const showDate = vsPreset !== 'today';
+            const onlyWithViews = document.getElementById('vsOnlyWithViews').checked;
+            const query = document.getElementById('vsSearch').value.trim().toLowerCase();
+            const timeFrom = document.getElementById('vsTimeFrom').value;   // 'HH:mm' หรือ ''
+            const timeTo = document.getElementById('vsTimeTo').value;
+            const entries = [];
+
+            vsRawRows.forEach(r => {
+                if (vsSelectedChannel !== '__ALL__' && r.channel !== vsSelectedChannel) return;
+                if (!vsRowInTimeframe(r.date)) return;
+                if (query && !String(r.title || '').toLowerCase().includes(query)) return;
+
+                let sched = r.scheduled_time || r.schedule_time || '';
+                sched = String(sched).trim().replace(/^(\d{1,2}:\d{2}):00$/, '$1'); // ตัดวินาที :00
+                sched = sched && sched !== '-' ? sched : null;
+                const schedCmp = sched ? sched.padStart(5, '0') : null; // 'HH:mm' สำหรับเทียบ
+
+                if (timeFrom && (!schedCmp || schedCmp < timeFrom)) return;
+                if (timeTo && (!schedCmp || schedCmp > timeTo)) return;
+
+                ['facebook', 'youtube', 'x', 'tiktok'].forEach(p => {
+                    if (!vsSelectedPlatforms.has(p)) return;
+                    const ps = r.platforms[p] || {};
+                    const hasView = ps.peak_view !== null && ps.peak_view !== undefined;
+                    const hasLink = ps.link && ps.link !== '-';
+                    if (!hasView && !hasLink) return;
+                    if (onlyWithViews && !hasView) return;
+
+                    entries.push({
+                        title: r.title,
+                        channel: r.channel,
+                        scheduleTime: sched,
+                        platform: p,
+                        views: hasView ? ps.peak_view : null,
+                        peakTime: ps.peak_time && ps.peak_time !== '-' ? ps.peak_time : null,
+                        date: r.date,
+                        link: hasLink ? ps.link : null
+                    });
+                });
+            });
+
+            // เรียงตามคอลัมน์ที่เลือก (default: วันเวลาที่ออกอากาศ เก่าสุดก่อน)
+            const airKey = e => `${e.date || '9999-99-99'} ${e.scheduleTime || '99:99'}`;
+            const peakKey = e => `${e.date || '9999-99-99'} ${e.peakTime || '99:99'}`;
+            const dir = vsSortDir === 'asc' ? 1 : -1;
+            const cmpStr = (a, b) => String(a).localeCompare(String(b), 'th');
+            const cmpNum = (a, b) => (a ?? -1) - (b ?? -1);
+
+            let primary;
+            if (vsSortKey === 'title') primary = (a, b) => cmpStr(a.title, b.title);
+            else if (vsSortKey === 'platform') primary = (a, b) => cmpStr(VS_PLATFORM_LABEL[a.platform], VS_PLATFORM_LABEL[b.platform]);
+            else if (vsSortKey === 'views') primary = (a, b) => cmpNum(a.views, b.views);
+            else if (vsSortKey === 'peak') primary = (a, b) => cmpStr(peakKey(a), peakKey(b));
+            else primary = (a, b) => cmpStr(airKey(a), airKey(b)); // 'air'
+
+            entries.sort((a, b) => {
+                const k = primary(a, b);
+                if (k !== 0) return k * dir;
+                // tie-break: เวลาออกอากาศ แล้วยอดวิวมาก่อน
+                const t = cmpStr(airKey(a), airKey(b));
+                return t !== 0 ? t : (b.views ?? -1) - (a.views ?? -1);
+            });
+
+            vsUpdateSortHeaders();
+
+            const body = document.getElementById('vsTableBody');
+            const wrap = document.getElementById('vsTableWrap');
+            const empty = document.getElementById('vsEmpty');
+            document.getElementById('vsResultCount').textContent = `${entries.length} รายการ`;
+
+            if (entries.length === 0) {
+                wrap.hidden = true;
+                empty.hidden = false;
+                body.innerHTML = '';
+                return;
+            }
+            empty.hidden = true;
+            wrap.hidden = false;
+
+            body.innerHTML = entries.map(e => {
+                const views = e.views !== null ? e.views.toLocaleString('en-US') : '<span class="vs-muted">–</span>';
+                let when = '<span class="vs-muted">–</span>';
+                if (e.peakTime) {
+                    when = showDate ? `${vsFormatDateThai(e.date)} เวลา ${e.peakTime}` : e.peakTime;
+                } else if (showDate) {
+                    when = vsFormatDateThai(e.date);
+                }
+                const link = e.link
+                    ? `<a class="vs-link" href="${e.link}" target="_blank" rel="noopener">${e.link}</a>`
+                    : '<span class="vs-muted">ไม่มีลิงก์</span>';
+
+                const airDate = vsFormatDateThai(e.date);
+                let airDateTime = '<span class="vs-muted">–</span>';
+                if (airDate) {
+                    airDateTime = e.scheduleTime ? `${airDate} เวลา ${escapeHtml(e.scheduleTime)}` : airDate;
+                }
+
+                return `<tr>
+                    <td class="vs-title-cell">${escapeHtml(e.title)}<span class="vs-ch">${escapeHtml(e.channel)}</span></td>
+                    <td class="vs-col-time">${airDateTime}</td>
+                    <td><span class="vs-plat-badge ${e.platform}">${VS_PLATFORM_LABEL[e.platform]}</span></td>
+                    <td class="vs-col-views">${views}</td>
+                    <td class="vs-col-time">${when}</td>
+                    <td>${link}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function escapeHtml(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        // Attach Event Listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            // Keyboard navigation for presentation mode
+            window.addEventListener('keydown', (e) => {
+                const overlay = document.getElementById('presentationOverlay');
+                if (!overlay || !overlay.classList.contains('active')) return;
+
+                if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+                    e.preventDefault();
+                    nextSlide();
+                } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+                    e.preventDefault();
+                    prevSlide();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    togglePresentationMode(false);
+                }
+            });
+            document.getElementById('searchInput').addEventListener('input', applyFilters);
+            document.getElementById('channelFilter').addEventListener('change', applyFilters);
+            document.getElementById('categoryFilter').addEventListener('change', applyFilters);
+
+            // Close dropdown on outside click
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.channel-dropdown-wrap')) {
+                    closeChannelDropdown();
+                }
+            });
+
+            // Fetch live data directly from Google Sheets via JSONP
+            fetchSheetData();
+
+            // เปิดหน้า Live View Stats โดยตรงผ่าน #viewstats
+            if (location.hash === '#viewstats') switchPage('viewstats');
+        });
+    </script>
+</body>
+
+</html>
