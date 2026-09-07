@@ -1516,12 +1516,6 @@
             gap: 8px;
         }
 
-        .vs-chip-row.scroll-x {
-            flex-wrap: nowrap;
-            overflow-x: auto;
-            padding-bottom: 6px;
-        }
-
         .vs-chip {
             padding: 8px 16px;
             border-radius: 999px;
@@ -1571,6 +1565,30 @@
             background: linear-gradient(135deg, #25F4EE, #FE2C55);
             color: #fff;
             box-shadow: 0 4px 14px rgba(254, 44, 85, 0.32);
+        }
+
+        /* Category chips — background/shadow set inline (per-category color) via JS */
+        .vs-chip.cat.active {
+            color: #ffffff;
+            border-color: transparent;
+        }
+
+        .vs-mini-btn {
+            padding: 5px 12px;
+            font-size: 11px;
+            font-weight: 700;
+            font-family: inherit;
+            border-radius: 999px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            transition: var(--transition);
+        }
+
+        .vs-mini-btn:hover {
+            color: #ffffff;
+            border-color: var(--border-focus);
         }
 
         .vs-timeframe {
@@ -2145,7 +2163,7 @@
                 <div class="vs-panel-head">
                     <span class="vs-panel-title">เลือกช่อง</span>
                 </div>
-                <div class="vs-chip-row scroll-x" id="vsChannelChips"></div>
+                <div class="vs-chip-row" id="vsChannelChips"></div>
             </div>
 
             <!-- Timeframe selector -->
@@ -2195,6 +2213,19 @@
                 </div>
             </div>
 
+            <!-- Category selector -->
+            <div class="vs-panel">
+                <div class="vs-panel-head" style="flex-wrap:wrap;">
+                    <span class="vs-panel-title">เลือกหมวดหมู่</span>
+                    <span style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                        <span class="vs-hint">เลือกได้หลายอัน</span>
+                        <button type="button" class="vs-mini-btn" onclick="setAllVsCategories(true)">เลือกทั้งหมด</button>
+                        <button type="button" class="vs-mini-btn" onclick="setAllVsCategories(false)">ล้าง</button>
+                    </span>
+                </div>
+                <div class="vs-chip-row" id="vsCategoryChips"></div>
+            </div>
+
             <!-- Charts (above the raw data table) -->
             <div class="vs-panel" id="vsChartsPanel" hidden>
                 <div class="vs-panel-head" style="flex-wrap:wrap;">
@@ -2225,6 +2256,12 @@
                         <div class="vs-chart-title">ส่วนแบ่งยอดวิวตามสถานี</div>
                         <div class="vs-chart-canvas-wrap">
                             <canvas id="vsChannelShareChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="vs-chart-box">
+                        <div class="vs-chart-title">ส่วนแบ่งยอดวิวตามหมวดหมู่</div>
+                        <div class="vs-chart-canvas-wrap">
+                            <canvas id="vsCategoryShareChart"></canvas>
                         </div>
                     </div>
                 </div>
@@ -3841,9 +3878,47 @@
         let vsSortKey = 'air';   // 'title' | 'air' | 'platform' | 'views' | 'peak'
         let vsSortDir = 'asc';   // 'asc' | 'desc'
 
+        // ตัวกรอง 'หมวดหมู่' (multi-select) — ใช้ค่าดิบจากคอลัมน์ D "หมวดหมู่" ของชีท 'View Stats'
+        // (เป็น genre ของรายการทีวี เช่น "ข่าวทั่วไป", "ซีรี่ย์/ละคร", "กีฬา" — ไม่ใช่หมวดข่าว 7 แบบของหน้าแรก)
+        const VS_CAT_UNLABELED = 'ไม่ระบุ';
+        let vsSelectedCategories = new Set();
+        let vsAllCategories = [];
+
+        // สีประจำหมวดหมู่ (คงที่ตลอด session) — สร้างครั้งเดียวหลังโหลดข้อมูล
+        let vsCategoryColorMap = new Map();
+
+        function vsBuildCategoryColorMap() {
+            const cats = Array.from(new Set(vsRawRows.map(vsCategoryOf)))
+                .sort((a, b) => a.localeCompare(b, 'th'));
+            vsCategoryColorMap = new Map();
+            let p = 0;
+            cats.forEach(c => {
+                if (c === VS_CAT_UNLABELED) {
+                    vsCategoryColorMap.set(c, '#4b5563');
+                } else {
+                    vsCategoryColorMap.set(c, VS_CHART_PALETTE[p % VS_CHART_PALETTE.length]);
+                    p++;
+                }
+            });
+        }
+
+        function vsCatColor(name) {
+            if (vsCategoryColorMap.has(name)) return vsCategoryColorMap.get(name);
+            let h = 0;
+            for (let i = 0; i < String(name).length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+            return VS_CHART_PALETTE[h % VS_CHART_PALETTE.length];
+        }
+
+        // หมวดหมู่ของแถว: ค่าดิบ (trim); ว่าง -> 'ไม่ระบุ'
+        function vsCategoryOf(row) {
+            const raw = String((row && (row.genre || row.category)) || '').trim();
+            return raw || VS_CAT_UNLABELED;
+        }
+
         // Chart instances สำหรับหน้า Live View Stats
         let vsTopProgramsChartInstance = null;
         let vsChannelShareChartInstance = null;
+        let vsCategoryShareChartInstance = null;
 
         // จานสีสำหรับกราฟ (แต่ละสำนักข่าวได้สีของตัวเอง — ใช้ร่วมกันทั้งกราฟแท่งและกราฟวงกลม)
         const VS_CHART_PALETTE = [
@@ -3981,6 +4056,7 @@
             vsRawRows = payload.data;
             vsLoaded = true;
             vsBuildChannelColorMap();
+            vsBuildCategoryColorMap();
             document.getElementById('vsLoading').hidden = true;
 
             const t = new Date();
@@ -3988,6 +4064,8 @@
                 `<span class="dot-pulse"></span> Live Sheet Synced (${t.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })})`;
 
             vsBuildChannelChips();
+            vsBuildCategories();
+            vsBuildCategoryChips();
             vsRender();
         }
 
@@ -4029,6 +4107,90 @@
             };
             mk('__ALL__', 'ทุกช่อง');
             channels.forEach(ch => mk(ch, ch));
+        }
+
+        // ---- ตัวกรองหมวดหมู่ (multi-select) ----
+        function vsBuildCategories() {
+            // นับจำนวนต่อหมวด แล้วเรียงมาก -> น้อย ('ไม่ระบุ' ไว้ท้ายสุดเสมอ)
+            const counts = new Map();
+            vsRawRows.forEach(r => {
+                const c = vsCategoryOf(r);
+                counts.set(c, (counts.get(c) || 0) + 1);
+            });
+            vsAllCategories = Array.from(counts.keys()).sort((a, b) => {
+                if (a === VS_CAT_UNLABELED) return 1;
+                if (b === VS_CAT_UNLABELED) return -1;
+                const d = counts.get(b) - counts.get(a);
+                return d !== 0 ? d : a.localeCompare(b, 'th');
+            });
+
+            if (vsSelectedCategories.size === 0) {
+                // ครั้งแรก: เลือกทุกหมวด
+                vsAllCategories.forEach(c => vsSelectedCategories.add(c));
+            } else {
+                // re-sync: ตัดหมวดที่ไม่มีในข้อมูลใหม่ออก
+                [...vsSelectedCategories].forEach(c => {
+                    if (!vsAllCategories.includes(c)) vsSelectedCategories.delete(c);
+                });
+                if (vsSelectedCategories.size === 0) vsAllCategories.forEach(c => vsSelectedCategories.add(c));
+            }
+        }
+
+        function vsBuildCategoryChips() {
+            const wrap = document.getElementById('vsCategoryChips');
+            wrap.innerHTML = '';
+            if (vsAllCategories.length === 0) {
+                wrap.innerHTML = '<span class="vs-hint">ไม่มีข้อมูลหมวดหมู่ในชีท</span>';
+                return;
+            }
+            vsAllCategories.forEach(cat => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'vs-chip cat';
+                b.dataset.cat = cat;
+                b.textContent = cat;
+                b.onclick = () => toggleVsCategory(cat);
+                wrap.appendChild(b);
+            });
+            vsSyncCategoryChipStyles();
+        }
+
+        // เลือกสีตัวอักษร (ดำ/ขาว) ให้ตัดกับพื้นหลัง hex
+        function vsTextOn(hex) {
+            const m = String(hex).replace('#', '');
+            const r = parseInt(m.substr(0, 2), 16), g = parseInt(m.substr(2, 2), 16), b = parseInt(m.substr(4, 2), 16);
+            const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+            return lum > 0.6 ? '#0b0f19' : '#ffffff';
+        }
+
+        function vsSyncCategoryChipStyles() {
+            document.querySelectorAll('#vsCategoryChips .vs-chip.cat').forEach(b => {
+                const on = vsSelectedCategories.has(b.dataset.cat);
+                b.classList.toggle('active', on);
+                if (on) {
+                    const col = vsCatColor(b.dataset.cat);
+                    b.style.background = col;
+                    b.style.color = vsTextOn(col);
+                    b.style.boxShadow = `0 4px 14px ${col}59`;
+                } else {
+                    b.style.background = '';
+                    b.style.color = '';
+                    b.style.boxShadow = '';
+                }
+            });
+        }
+
+        function toggleVsCategory(cat) {
+            if (vsSelectedCategories.has(cat)) vsSelectedCategories.delete(cat);
+            else vsSelectedCategories.add(cat);
+            vsSyncCategoryChipStyles();
+            vsRender();
+        }
+
+        function setAllVsCategories(on) {
+            vsSelectedCategories = new Set(on ? vsAllCategories : []);
+            vsSyncCategoryChipStyles();
+            vsRender();
         }
 
         function setVsPreset(preset, btn) {
@@ -4150,10 +4312,10 @@
                 if (!vsRowInTimeframe(r.date)) return;
                 if (query && !String(r.title || '').toLowerCase().includes(query)) return;
 
-                // 'หมวดหมู่' (genre) เป็น dimension ใหม่ในชีท — ยังพัฒนาไม่เสร็จ (มักว่าง)
-                // payload จาก Apps Script ส่งมาในคีย์ 'genre' (มี 'category' เป็น fallback)
-                // รับค่ามาเก็บไว้เฉย ๆ เผื่อใช้กรอง/จัดกลุ่มในอนาคต ยังไม่นำมาประมวลผล
-                const category = String(r.genre || r.category || '').trim();
+                // 'หมวดหมู่' (genre) — payload จาก Apps Script ส่งมาในคีย์ 'genre' (มี 'category' เป็น fallback)
+                // normalize เข้ากลุ่มมาตรฐาน แล้วกรองตาม chip ที่ผู้ใช้เลือก
+                const category = vsCategoryOf(r);
+                if (!vsSelectedCategories.has(category)) return;
 
                 let sched = r.scheduled_time || r.schedule_time || '';
                 sched = String(sched).trim().replace(/^(\d{1,2}:\d{2}):00$/, '$1'); // ตัดวินาที :00
@@ -4273,7 +4435,7 @@
             const progMap = new Map();
             viewed.forEach(e => {
                 const key = e.channel + ' ┃ ' + e.title;
-                const cur = progMap.get(key) || { channel: e.channel, title: e.title, views: 0 };
+                const cur = progMap.get(key) || { channel: e.channel, title: e.title, category: e.category || 'ไม่ระบุ', views: 0 };
                 cur.views = Math.max(cur.views, e.views);
                 progMap.set(key, cur);
             });
@@ -4281,6 +4443,7 @@
 
             if (vsTopProgramsChartInstance) { vsTopProgramsChartInstance.destroy(); vsTopProgramsChartInstance = null; }
             if (vsChannelShareChartInstance) { vsChannelShareChartInstance.destroy(); vsChannelShareChartInstance = null; }
+            if (vsCategoryShareChartInstance) { vsCategoryShareChartInstance.destroy(); vsCategoryShareChartInstance = null; }
 
             if (programs.length === 0) {
                 row.hidden = true;
@@ -4458,6 +4621,27 @@
             const sliceColors = chArr.map(x =>
                 x[0] === 'อื่นๆ' ? '#4b5563' : vsChannelColor(x[0]));
 
+            const vsPieOptions = (total) => ({
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: { padding: 30 },
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: { color: '#9ca3af', font: { size: 11 }, boxWidth: 12, padding: 8 }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => {
+                                const val = ctx.parsed;
+                                const pct = total ? (val / total * 100).toFixed(1) : '0.0';
+                                return ` ${ctx.label}: ${val.toLocaleString('en-US')} วิว (${pct}%)`;
+                            }
+                        }
+                    }
+                }
+            });
+
             vsChannelShareChartInstance = new Chart(document.getElementById('vsChannelShareChart'), {
                 type: 'pie',
                 data: {
@@ -4469,26 +4653,37 @@
                         borderWidth: 2
                     }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    layout: { padding: 30 },
-                    plugins: {
-                        legend: {
-                            position: 'right',
-                            labels: { color: '#9ca3af', font: { size: 11 }, boxWidth: 12, padding: 8 }
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: ctx => {
-                                    const val = ctx.parsed;
-                                    const pct = grandTotal ? (val / grandTotal * 100).toFixed(1) : '0.0';
-                                    return ` ${ctx.label}: ${val.toLocaleString('en-US')} วิว (${pct}%)`;
-                                }
-                            }
-                        }
-                    }
+                options: vsPieOptions(grandTotal),
+                plugins: [vsPieLabelPlugin]
+            });
+
+            /* ---------- กราฟที่ 3: วงกลม ส่วนแบ่งยอดวิวตามหมวดหมู่ (เป็น %) ---------- */
+            const catMap = new Map();
+            programs.forEach(p => catMap.set(p.category, (catMap.get(p.category) || 0) + p.views));
+            let catArr = Array.from(catMap.entries()).sort((a, b) => b[1] - a[1]);
+
+            // ยุบหมวดที่เกินอันดับ 10 รวมเป็น "หมวดอื่น ๆ"
+            const CAT_MAX_SLICES = 10;
+            const CAT_REST_LABEL = 'หมวดอื่น ๆ';
+            if (catArr.length > CAT_MAX_SLICES) {
+                const head = catArr.slice(0, CAT_MAX_SLICES - 1);
+                const restTotal = catArr.slice(CAT_MAX_SLICES - 1).reduce((s, x) => s + x[1], 0);
+                head.push([CAT_REST_LABEL, restTotal]);
+                catArr = head;
+            }
+
+            vsCategoryShareChartInstance = new Chart(document.getElementById('vsCategoryShareChart'), {
+                type: 'pie',
+                data: {
+                    labels: catArr.map(x => x[0]),
+                    datasets: [{
+                        data: catArr.map(x => x[1]),
+                        backgroundColor: catArr.map(x => x[0] === CAT_REST_LABEL ? '#4b5563' : vsCatColor(x[0])),
+                        borderColor: 'rgba(11, 15, 25, 0.9)',
+                        borderWidth: 2
+                    }]
                 },
+                options: vsPieOptions(grandTotal),
                 plugins: [vsPieLabelPlugin]
             });
         }

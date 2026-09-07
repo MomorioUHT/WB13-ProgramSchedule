@@ -5,9 +5,11 @@
 
 ลำดับการทำงาน
     1. fetch API (POST channelType=1 ได้ครบทุกช่อง)
-    2. extract pgDate, pgBeginTime, pgTitle ; ใช้ channelName เป็นชื่อชีท
+    2. extract pgDate (DD-MM-YY), pgBeginTime, pgTitle ; ใช้ channelName เป็นชื่อชีท
     3. group ตามช่อง, เรียงตามวัน -> เวลา
-    4. ต่อชีท: create(sheet) แล้ว put(sheet, data, "A2")  (เขียนทับทั้งหมด)
+    4. ต่อชีท: create(sheet) แล้ว append_programs(sheet, data)
+       -- sync แบบ append-only: Apps Script เทียบกับรายการเดิมในชีท
+          แล้วเพิ่ม "เฉพาะรายการใหม่" ต่อท้าย (record เดิมไม่ถูกแตะ)
     5. เขียน channels.txt = ชื่อช่องที่ไม่ซ้ำ
 """
 
@@ -28,6 +30,33 @@ for _stream in (sys.stdout, sys.stderr):
     except (AttributeError, ValueError):
         pass
 
+
+def _load_dotenv(path: str = ".env") -> None:
+    """โหลดค่าจากไฟล์ .env เข้า os.environ (parser เล็ก ๆ ไม่ต้องพึ่ง python-dotenv)
+
+    - รูปแบบ KEY=VALUE ต่อบรรทัด ; ข้ามบรรทัดว่าง / ขึ้นต้นด้วย #
+    - ตัด quote ครอบ value และ prefix "export " ออกให้
+    - ไม่ทับค่าที่ตั้งไว้แล้วใน environment จริง (env จริงชนะ .env)
+    """
+    try:
+        with open(path, encoding="utf-8-sig") as fh:
+            for raw in fh:
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                if line.startswith("export "):
+                    line = line[len("export "):]
+                key, _, val = line.partition("=")
+                key = key.strip()
+                val = val.strip().strip('"').strip("'")
+                if key and key not in os.environ:
+                    os.environ[key] = val
+    except FileNotFoundError:
+        pass
+
+
+_load_dotenv()
+
 # --------------------------------------------------------------------------- #
 # ตั้งค่า
 # --------------------------------------------------------------------------- #
@@ -35,7 +64,7 @@ for _stream in (sys.stdout, sys.stderr):
 API_URL = "https://dttguide.nbtc.go.th/BcsEpgDataServices/BcsEpgDataController/getProgramDataWeb"
 API_PAYLOAD = {"channelType": "1"}
 
-# URL ของ Apps Script Web App หลัง deploy (ใส่ที่นี่ หรือกำหนดผ่าน env APPS_SCRIPT_URL)
+# URL ของ Apps Script Web App หลัง deploy (กำหนดผ่านไฟล์ .env หรือ env var APPS_SCRIPT_URL)
 APPS_SCRIPT_URL = os.environ.get("APPS_SCRIPT_URL", "NO URL")
 
 CHANNELS_FILE = "channels.txt"
@@ -110,10 +139,15 @@ def _trim_time(value: str) -> str:
 
 
 def _date_sort_key(pg_date: str) -> tuple[int, int, int]:
-    """'31-08-26' (DD-MM-YY) -> (2026, 8, 31) สำหรับเรียงลำดับ"""
+    """'31-08-26' (DD-MM-YY) -> (2026, 8, 31) สำหรับเรียงลำดับ
+
+    รองรับปี 4 หลักเผื่อไว้ ('31-08-2026' -> (2026, 8, 31))
+    """
     try:
         day, month, year = (int(p) for p in pg_date.split("-"))
-        return (2000 + year, month, day)
+        if year < 100:
+            year += 2000
+        return (year, month, day)
     except (ValueError, AttributeError):
         return (9999, 99, 99)
 
@@ -218,16 +252,27 @@ def call_apps_script(action: str, **params) -> dict:
 
 def push_to_sheets(sheets: dict[str, list[list[str]]]) -> None:
     total = len(sheets)
+    grand_appended = 0
+    grand_skipped = 0
     for index, (channel, rows) in enumerate(sorted(sheets.items()), start=1):
-        print(f"[sheet {index}/{total}] {channel} ({len(rows)} รายการ)")
+        print(f"[sheet {index}/{total}] {channel} ({len(rows)} รายการจาก API)")
         created = call_apps_script("create", sheet=channel)
         if created.get("created"):
             print(f"    - สร้างชีทใหม่")
-        else:
-            print(f"    - มีชีทอยู่แล้ว ข้ามการสร้าง")
-        call_apps_script("put", sheet=channel, data=rows, corner="A2")
-        print(f"    - เขียนทับข้อมูลเรียบร้อย")
+
+        # sync แบบ append-only: Apps Script เทียบกับของเดิมในชีท แล้วเพิ่มเฉพาะรายการใหม่ต่อท้าย
+        res = call_apps_script("append_programs", sheet=channel, data=rows)
+        appended = res.get("appended", 0)
+        skipped = res.get("skipped", 0)
+        grand_appended += appended
+        grand_skipped += skipped
+        print(
+            f"    - เพิ่มใหม่ {appended} รายการ, มีอยู่แล้ว {skipped} รายการ"
+            f" (รวมในชีท {res.get('total_rows', '?')})"
+        )
         time.sleep(SHEET_PAUSE)  # เว้นจังหวะ ลดโอกาส Apps Script ตอบหน้า error ชั่วคราว
+
+    print(f"[summary] เพิ่มใหม่รวม {grand_appended} รายการ, ข้ามที่มีอยู่แล้ว {grand_skipped} รายการ")
 
 
 # --------------------------------------------------------------------------- #
@@ -246,8 +291,10 @@ def write_channels_file(sheets: dict[str, list[list[str]]]) -> None:
 # --------------------------------------------------------------------------- #
 
 def main() -> int:
-    if "XXXXXXXX" in APPS_SCRIPT_URL:
-        print("!! ยังไม่ได้ตั้งค่า APPS_SCRIPT_URL (แก้ในไฟล์ หรือ set env APPS_SCRIPT_URL)")
+    if not APPS_SCRIPT_URL.lower().startswith("http"):
+        print("!! ยังไม่ได้ตั้งค่า APPS_SCRIPT_URL")
+        print("   - ใส่ในไฟล์ .env ที่โฟลเดอร์นี้:  APPS_SCRIPT_URL=https://script.google.com/macros/s/XXXX/exec")
+        print('   - หรือ set env var:  $env:APPS_SCRIPT_URL = "https://script.google.com/macros/s/XXXX/exec"')
         return 1
 
     data = fetch_program_data()
