@@ -1736,10 +1736,11 @@
             color: #fff;
         }
 
-        .vs-plat-badge.facebook { background: #1877F2; }
-        .vs-plat-badge.youtube { background: #FF0000; }
-        .vs-plat-badge.x { background: #0b0b0b; border: 1px solid #4b5563; }
-        .vs-plat-badge.tiktok { background: #FE2C55; }
+        /* ไล่เฉดสีให้เหมือน chip "เลือกแพลตฟอร์ม" ด้านบน */
+        .vs-plat-badge.facebook { background: linear-gradient(135deg, #3b82f6, #1877F2); }
+        .vs-plat-badge.youtube { background: linear-gradient(135deg, #f43f5e, #FF0000); }
+        .vs-plat-badge.x { background: linear-gradient(135deg, #374151, #0b0b0b); border: 1px solid #4b5563; }
+        .vs-plat-badge.tiktok { background: linear-gradient(135deg, #25F4EE, #FE2C55); }
 
         .vs-link {
             color: var(--accent-secondary);
@@ -4297,6 +4298,22 @@
             return t ? `${d} ${VS_DT_SEP} ${t}` : d;
         }
 
+        // ---- คีย์สำหรับ "เรียงลำดับตามวันเวลา" (เทียบแบบ text ได้ถูกต้องตามลำดับเวลาจริง) ----
+        // วันที่ -> 'YYYY-MM-DD', เวลา -> 'HH:MM:SS' (เติม 0 หน้าชั่วโมงเสมอ ป้องกัน '9:30' > '10:30')
+        function vsDateSortable(dateStr) {
+            const d = parseArticleDate(dateStr);
+            if (!d) return '9999-99-99';
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+        function vsTimeSortable(timeStr) {
+            const m = String(timeStr == null ? '' : timeStr).trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+            if (!m) return '99:99:99';
+            return `${m[1].padStart(2, '0')}:${m[2]}:${m[3] || '00'}`;
+        }
+        function vsDateTimeSortable(dateStr, timeStr) {
+            return `${vsDateSortable(dateStr)} ${vsTimeSortable(timeStr)}`;
+        }
+
         function vsRender() {
             if (!vsLoaded) return;
 
@@ -4349,24 +4366,26 @@
             });
 
             // เรียงตามคอลัมน์ที่เลือก (default: วันเวลาที่ออกอากาศ เก่าสุดก่อน)
-            const airKey = e => `${e.date || '9999-99-99'} ${e.scheduleTime || '99:99'}`;
-            const peakKey = e => `${e.date || '9999-99-99'} ${e.peakTime || '99:99'}`;
+            // air/peak: เทียบจาก text ที่ combine วันเวลาแล้ว (canonical 'YYYY-MM-DD HH:MM:SS')
+            const airKey = e => vsDateTimeSortable(e.date, e.scheduleTime);
+            const peakKey = e => vsDateTimeSortable(e.date, e.peakTime);
             const dir = vsSortDir === 'asc' ? 1 : -1;
             const cmpStr = (a, b) => String(a).localeCompare(String(b), 'th');
+            const cmpKey = (a, b) => (a < b ? -1 : a > b ? 1 : 0); // เทียบ text ตรง ๆ (สำหรับคีย์ canonical)
             const cmpNum = (a, b) => (a ?? -1) - (b ?? -1);
 
             let primary;
             if (vsSortKey === 'title') primary = (a, b) => cmpStr(a.title, b.title);
             else if (vsSortKey === 'platform') primary = (a, b) => cmpStr(VS_PLATFORM_LABEL[a.platform], VS_PLATFORM_LABEL[b.platform]);
             else if (vsSortKey === 'views') primary = (a, b) => cmpNum(a.views, b.views);
-            else if (vsSortKey === 'peak') primary = (a, b) => cmpStr(peakKey(a), peakKey(b));
-            else primary = (a, b) => cmpStr(airKey(a), airKey(b)); // 'air'
+            else if (vsSortKey === 'peak') primary = (a, b) => cmpKey(peakKey(a), peakKey(b));
+            else primary = (a, b) => cmpKey(airKey(a), airKey(b)); // 'air'
 
             entries.sort((a, b) => {
                 const k = primary(a, b);
                 if (k !== 0) return k * dir;
                 // tie-break: เวลาออกอากาศ แล้วยอดวิวมาก่อน
-                const t = cmpStr(airKey(a), airKey(b));
+                const t = cmpKey(airKey(a), airKey(b));
                 return t !== 0 ? t : (b.views ?? -1) - (a.views ?? -1);
             });
 
