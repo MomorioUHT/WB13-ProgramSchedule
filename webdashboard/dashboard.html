@@ -1831,12 +1831,12 @@
         .vs-charts-col .vs-chart-canvas-wrap { height: 340px; }
 
         .vs-chart-title {
-            font-size: 12.5px;
-            font-weight: 700;
-            color: var(--text-secondary);
+            font-size: 15.5px;
+            font-weight: 800;
+            color: var(--text-primary);
             text-transform: uppercase;
-            letter-spacing: 0.04em;
-            margin-bottom: 10px;
+            letter-spacing: 0.03em;
+            margin-bottom: 12px;
         }
 
         .vs-chart-head {
@@ -2250,14 +2250,14 @@
                 <div class="vs-charts-row">
                     <div class="vs-chart-box bar">
                         <div class="vs-chart-head">
-                            <span class="vs-chart-title" id="vsTopProgramsTitle">ยอดวิวสูงสุดรายรายการ (Top 15)</span>
+                            <span class="vs-chart-title" id="vsTopProgramsTitle">ยอดวิวสูงสุดรายรายการ (Top 30)</span>
                             <label class="vs-topn-wrap">แสดง
                                 <select id="vsTopN" class="vs-topn-select" onchange="vsRender()">
                                     <option value="5">Top 5</option>
                                     <option value="10">Top 10</option>
-                                    <option value="15" selected>Top 15</option>
+                                    <option value="15">Top 15</option>
                                     <option value="20">Top 20</option>
-                                    <option value="30">Top 30</option>
+                                    <option value="30" selected>Top 30</option>
                                     <option value="50">Top 50</option>
                                     <option value="all">ทั้งหมด</option>
                                 </select>
@@ -4531,14 +4531,28 @@
                     // ชิ้นที่เล็กกว่านี้ไม่ต้องวาดตัวชี้เลย (ดูสัดส่วนจาก legend / tooltip แทน)
                     // เพื่อไม่ให้ตัวชี้ของชิ้นเล็ก ๆ หลายอันมากองทับกัน
                     const MIN_PCT_LEADER = 3;
+                    // บักเก็ต "อื่นๆ" ไม่ต้องมีตัวชี้ % (เป็นของยิบย่อยรวมกัน ไม่สื่อความหมาย)
+                    const REST_LABELS = ['อื่นๆ', 'หมวดอื่น ๆ'];
                     const outer = [];
                     meta.data.forEach((arc, i) => {
                         const val = ds.data[i] || 0;
                         const pct = val / total * 100;
                         if (pct <= 0) return;
+                        const isRest = REST_LABELS.includes(String(chart.data.labels[i]));
                         const label = pct >= 10 ? Math.round(pct) + '%' : pct.toFixed(1) + '%';
                         const mid = (arc.startAngle + arc.endAngle) / 2;
                         const cos = Math.cos(mid), sin = Math.sin(mid);
+                        if (isRest) {
+                            // เขียน % กลางชิ้นเฉพาะเมื่อชิ้นใหญ่พอ ไม่ลากเส้นชี้ออกนอก
+                            if (pct >= 6) {
+                                const r = (arc.innerRadius + arc.outerRadius) / 2;
+                                ctx.fillStyle = '#ffffff';
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'middle';
+                                ctx.fillText(label, arc.x + cos * r, arc.y + sin * r);
+                            }
+                            return;
+                        }
                         if (pct >= 6) {
                             const r = (arc.innerRadius + arc.outerRadius) / 2;
                             ctx.fillStyle = '#ffffff';
@@ -4574,12 +4588,17 @@
                         }
                         list.forEach(o => { o.y = Math.max(yMin, Math.min(yMax, o.y)); });
                     });
+                    const LABEL_W = 34;   // เผื่อความกว้างข้อความ "xx.x%"
                     outer.forEach(o => {
                         const { arc, cos, sin, label, right } = o;
                         const rOut = arc.outerRadius;
                         const x1 = arc.x + cos * rOut;
                         const y1 = arc.y + sin * rOut;
-                        const x2 = arc.x + cos * (rOut + 14);
+                        // clamp ปลายเส้น/ข้อความให้อยู่ในกรอบ ไม่ล้นออกนอกกล่อง
+                        let x2 = arc.x + cos * (rOut + 14);
+                        x2 = right
+                            ? Math.min(x2, area.right - LABEL_W)
+                            : Math.max(x2, area.left + LABEL_W);
                         const y2 = o.y;
                         ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
                         ctx.lineWidth = 1;
@@ -4604,8 +4623,8 @@
 
             /* ---------- กราฟที่ 1: แท่งแนวนอน ยอดวิวสูงสุดรายรายการ ---------- */
             const sortedProgs = programs.slice().sort((a, b) => b.views - a.views);
-            const topNRaw = (document.getElementById('vsTopN') || {}).value || '15';
-            const topN = topNRaw === 'all' ? sortedProgs.length : Math.min(parseInt(topNRaw, 10) || 15, sortedProgs.length);
+            const topNRaw = (document.getElementById('vsTopN') || {}).value || '30';
+            const topN = topNRaw === 'all' ? sortedProgs.length : Math.min(parseInt(topNRaw, 10) || 30, sortedProgs.length);
             const topProgs = sortedProgs.slice(0, topN);
 
             const topTitleEl = document.getElementById('vsTopProgramsTitle');

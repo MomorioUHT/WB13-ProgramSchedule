@@ -59,6 +59,18 @@ function doGet(e) {
       return jsonOut(vsPayload);
     }
 
+    // [ADDED] Link Config endpoint — อ่าน Channel_Links และ Broadcast_Overrides
+    if (e && e.parameter && (e.parameter.action === 'get_link_config' || e.parameter.action === 'link_config')) {
+      var cfgPayload = getLinkConfig_(SpreadsheetApp.getActiveSpreadsheet());
+      var cfgCb = e.parameter.callback;
+      if (cfgCb) {
+        return ContentService
+          .createTextOutput(cfgCb + '(' + JSON.stringify(cfgPayload) + ');')
+          .setMimeType(ContentService.MimeType.JAVASCRIPT);
+      }
+      return jsonOut(cfgPayload);
+    }
+
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheetParam = (e && e.parameter && e.parameter.sheet) ? e.parameter.sheet.trim() : '';
 
@@ -72,14 +84,14 @@ function doGet(e) {
       return jsonOut({ ok: true, status: 'ok', sheet: sheetParam, total: rows.length, data: rows });
     }
 
-    // หากไม่ระบุ ให้ดึงข้อมูลผังรายการของทุกช่อง (ยกเว้นชีท 'View Stats')
+    // หากไม่ระบุ ให้ดึงข้อมูลผังรายการของทุกช่อง (ยกเว้นชีท 'View Stats', Config, Overrides)
     var allSheets = ss.getSheets();
     var channelData = {};
     var totalCount = 0;
 
     allSheets.forEach(function (sh) {
       var sName = sh.getName();
-      if (sName.trim().toLowerCase().indexOf('view stats') === 0) return;
+      if (!isScheduleSheetName_(sName)) return;
       var rows = extractSheetRows_(sh);
       channelData[sName] = rows;
       totalCount += rows.length;
@@ -113,6 +125,15 @@ function doPost(e) {
       return jsonOut(buildViewStatsPayload_());
     }
 
+    // [ADDED] Link Config endpoints (อ่านและบันทึก Channel_Links และ Broadcast_Overrides)
+    if (action === 'get_link_config' || action === 'link_config') {
+      return jsonOut(getLinkConfig_(ss));
+    }
+    if (action === 'save_link_config') {
+      result = saveLinkConfig_(ss, req);
+      return jsonOut({ ok: true, action: action, result: result });
+    }
+
     // 1. บันทึกยอดวิว Peak View (One row per broadcast per day) ลงชีท "View Stats"
     if (action === 'append_view_stats' || action === 'upsert_view_stats' || req.target_sheet === 'View Stats') {
       result = upsertViewStats_(ss, req);
@@ -126,7 +147,7 @@ function doPost(e) {
       var totalCount = 0;
       allSheets.forEach(function (sh) {
         var sName = sh.getName();
-        if (sName.trim().toLowerCase().indexOf('view stats') === 0) return;
+        if (!isScheduleSheetName_(sName)) return;
         var rows = extractSheetRows_(sh);
         channelData[sName] = rows;
         totalCount += rows.length;
@@ -781,4 +802,170 @@ function formatTimeCell_(val) {
   }
   var s = String(val).trim();
   return s === '' ? '-' : s;
+}
+
+/* ============================================================================
+ * [ADDED] Link Config Management — Channel_Links & Broadcast_Overrides
+ * จัดเก็บลิงก์หลักประจำช่อง (รองรับหลายลิงก์) และลิงก์เฉพาะรายรายการ (Overrides)
+ * ========================================================================== */
+
+var CHANNEL_LINKS_SHEET = 'Channel_Links';
+var BROADCAST_OVERRIDES_SHEET = 'Broadcast_Overrides';
+
+var CHANNEL_LINKS_HEADERS = ['Channel', 'Facebook URLs', 'YouTube URLs', 'TikTok URLs', 'X URLs', 'Last Updated'];
+var BROADCAST_OVERRIDES_HEADERS = ['Channel', 'Program Title', 'Facebook URLs', 'YouTube URLs', 'TikTok URLs', 'X URLs', 'Last Updated'];
+
+function isScheduleSheetName_(sName) {
+  var n = String(sName || '').trim().toLowerCase();
+  if (!n) return false;
+  if (n.indexOf('view stats') === 0) return false;
+  if (n === 'channel_links' || n === 'broadcast_overrides') return false;
+  if (n.indexOf('config') >= 0 || n.indexOf('override') >= 0) return false;
+  return true;
+}
+
+function getLinkConfig_(ss) {
+  try {
+    var channelLinks = {};
+    var chSheet = ss.getSheetByName(CHANNEL_LINKS_SHEET);
+    if (!chSheet) {
+      chSheet = ss.insertSheet(CHANNEL_LINKS_SHEET);
+      chSheet.getRange(1, 1, 1, CHANNEL_LINKS_HEADERS.length).setValues([CHANNEL_LINKS_HEADERS]);
+      chSheet.setFrozenRows(1);
+    } else if (chSheet.getLastRow() >= 2) {
+      var numRows = chSheet.getLastRow() - 1;
+      var vals = chSheet.getRange(2, 1, numRows, 6).getValues();
+      vals.forEach(function(r) {
+        var ch = String(r[0] || '').trim();
+        if (!ch) return;
+        channelLinks[ch] = {
+          facebook: parseUrlList_(r[1]),
+          youtube: parseUrlList_(r[2]),
+          tiktok: parseUrlList_(r[3]),
+          x: parseUrlList_(r[4]),
+          last_updated: r[5] ? String(r[5]) : ''
+        };
+      });
+    }
+
+    var broadcastOverrides = [];
+    var boSheet = ss.getSheetByName(BROADCAST_OVERRIDES_SHEET);
+    if (!boSheet) {
+      boSheet = ss.insertSheet(BROADCAST_OVERRIDES_SHEET);
+      boSheet.getRange(1, 1, 1, BROADCAST_OVERRIDES_HEADERS.length).setValues([BROADCAST_OVERRIDES_HEADERS]);
+      boSheet.setFrozenRows(1);
+    } else if (boSheet.getLastRow() >= 2) {
+      var numBoRows = boSheet.getLastRow() - 1;
+      var boVals = boSheet.getRange(2, 1, numBoRows, 7).getValues();
+      boVals.forEach(function(r) {
+        var ch = String(r[0] || '').trim();
+        var title = String(r[1] || '').trim();
+        if (!ch || !title) return;
+        broadcastOverrides.push({
+          channel: ch,
+          title: title,
+          facebook: parseUrlList_(r[2]),
+          youtube: parseUrlList_(r[3]),
+          tiktok: parseUrlList_(r[4]),
+          x: parseUrlList_(r[5]),
+          last_updated: r[6] ? String(r[6]) : ''
+        });
+      });
+    }
+
+    return {
+      ok: true,
+      channel_links: channelLinks,
+      broadcast_overrides: broadcastOverrides
+    };
+  } catch (err) {
+    return { ok: false, error: String(err && err.stack ? err.stack : err) };
+  }
+}
+
+function parseUrlList_(val) {
+  if (!val) return [];
+  var s = String(val).trim();
+  if (!s || s === '-' || s.toUpperCase() === 'N/A') return [];
+  var parts = s.split(/[\r\n,]+/);
+  var out = [];
+  var seen = {};
+  for (var i = 0; i < parts.length; i++) {
+    var u = parts[i].trim();
+    if (u && !seen[u]) {
+      seen[u] = true;
+      out.push(u);
+    }
+  }
+  return out;
+}
+
+function saveLinkConfig_(ss, req) {
+  var nowStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Bangkok', 'yyyy-MM-dd HH:mm:ss');
+  var updatedChannels = 0;
+  var updatedOverrides = 0;
+
+  // 1. Channel Links
+  if (req.channel_links && typeof req.channel_links === 'object') {
+    var chSheet = ss.getSheetByName(CHANNEL_LINKS_SHEET);
+    if (!chSheet) {
+      chSheet = ss.insertSheet(CHANNEL_LINKS_SHEET);
+      chSheet.getRange(1, 1, 1, CHANNEL_LINKS_HEADERS.length).setValues([CHANNEL_LINKS_HEADERS]);
+      chSheet.setFrozenRows(1);
+    }
+    var chRows = [];
+    var chKeys = Object.keys(req.channel_links).sort();
+    chKeys.forEach(function(ch) {
+      var item = req.channel_links[ch] || {};
+      var fb = Array.isArray(item.facebook) ? item.facebook.join('\n') : String(item.facebook || '').trim();
+      var yt = Array.isArray(item.youtube) ? item.youtube.join('\n') : String(item.youtube || '').trim();
+      var tt = Array.isArray(item.tiktok) ? item.tiktok.join('\n') : String(item.tiktok || '').trim();
+      var x = Array.isArray(item.x) ? item.x.join('\n') : String(item.x || '').trim();
+      chRows.push([ch, fb, yt, tt, x, nowStr]);
+    });
+
+    if (chSheet.getLastRow() > 1) {
+      chSheet.getRange(2, 1, chSheet.getLastRow() - 1, chSheet.getLastColumn()).clearContent();
+    }
+    if (chRows.length > 0) {
+      chSheet.getRange(2, 1, chRows.length, 6).setNumberFormat('@').setValues(chRows);
+    }
+    updatedChannels = chRows.length;
+  }
+
+  // 2. Broadcast Overrides
+  if (req.broadcast_overrides && Array.isArray(req.broadcast_overrides)) {
+    var boSheet = ss.getSheetByName(BROADCAST_OVERRIDES_SHEET);
+    if (!boSheet) {
+      boSheet = ss.insertSheet(BROADCAST_OVERRIDES_SHEET);
+      boSheet.getRange(1, 1, 1, BROADCAST_OVERRIDES_HEADERS.length).setValues([BROADCAST_OVERRIDES_HEADERS]);
+      boSheet.setFrozenRows(1);
+    }
+    var boRows = [];
+    req.broadcast_overrides.forEach(function(item) {
+      var ch = String(item.channel || '').trim();
+      var title = String(item.title || '').trim();
+      if (!ch || !title) return;
+      var fb = Array.isArray(item.facebook) ? item.facebook.join('\n') : String(item.facebook || '').trim();
+      var yt = Array.isArray(item.youtube) ? item.youtube.join('\n') : String(item.youtube || '').trim();
+      var tt = Array.isArray(item.tiktok) ? item.tiktok.join('\n') : String(item.tiktok || '').trim();
+      var x = Array.isArray(item.x) ? item.x.join('\n') : String(item.x || '').trim();
+      boRows.push([ch, title, fb, yt, tt, x, nowStr]);
+    });
+
+    if (boSheet.getLastRow() > 1) {
+      boSheet.getRange(2, 1, boSheet.getLastRow() - 1, boSheet.getLastColumn()).clearContent();
+    }
+    if (boRows.length > 0) {
+      boSheet.getRange(2, 1, boRows.length, 7).setNumberFormat('@').setValues(boRows);
+    }
+    updatedOverrides = boRows.length;
+  }
+
+  return {
+    success: true,
+    channel_links_count: updatedChannels,
+    broadcast_overrides_count: updatedOverrides,
+    timestamp: nowStr
+  };
 }

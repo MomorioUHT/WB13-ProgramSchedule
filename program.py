@@ -10,7 +10,12 @@
     4. ต่อชีท: create(sheet) แล้ว append_programs(sheet, data)
        -- sync แบบ append-only: Apps Script เทียบกับรายการเดิมในชีท
           แล้วเพิ่ม "เฉพาะรายการใหม่" ต่อท้าย (record เดิมไม่ถูกแตะ)
-    5. เขียน channels.txt = ชื่อช่องที่ไม่ซ้ำ
+    5. เขียน configuration/channels.txt = ชื่อช่องที่ไม่ซ้ำ
+
+ไฟล์ประกอบ (path อ้างอิงจากโฟลเดอร์ที่ไฟล์ program.py อยู่ ไม่ผูกกับ cwd):
+    configuration/map.txt       -- input : map ชื่อช่องจาก API -> ชื่อชีท
+    configuration/channels.txt  -- output : รายชื่อชีทที่ไม่ซ้ำ (โปรแกรมสร้างให้)
+    .env                        -- APPS_SCRIPT_URL (อยู่ที่ root ของโปรเจกต์)
 """
 
 from __future__ import annotations
@@ -31,13 +36,19 @@ for _stream in (sys.stdout, sys.stderr):
         pass
 
 
-def _load_dotenv(path: str = ".env") -> None:
+# path อ้างอิงจากตำแหน่งไฟล์นี้เสมอ (รันจากโฟลเดอร์ไหนก็หาไฟล์เจอ)
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+_CONFIG_DIR = os.path.join(_BASE_DIR, "configuration")
+
+
+def _load_dotenv(path: str = "") -> None:
     """โหลดค่าจากไฟล์ .env เข้า os.environ (parser เล็ก ๆ ไม่ต้องพึ่ง python-dotenv)
 
     - รูปแบบ KEY=VALUE ต่อบรรทัด ; ข้ามบรรทัดว่าง / ขึ้นต้นด้วย #
     - ตัด quote ครอบ value และ prefix "export " ออกให้
     - ไม่ทับค่าที่ตั้งไว้แล้วใน environment จริง (env จริงชนะ .env)
     """
+    path = path or os.path.join(_BASE_DIR, ".env")
     try:
         with open(path, encoding="utf-8-sig") as fh:
             for raw in fh:
@@ -67,8 +78,12 @@ API_PAYLOAD = {"channelType": "1"}
 # URL ของ Apps Script Web App หลัง deploy (กำหนดผ่านไฟล์ .env หรือ env var APPS_SCRIPT_URL)
 APPS_SCRIPT_URL = os.environ.get("APPS_SCRIPT_URL", "NO URL")
 
-CHANNELS_FILE = "channels.txt"
-MAP_FILE = "map.txt"
+# ไฟล์ mapping (input) และ channels (output) ย้ายไปอยู่ในโฟลเดอร์ configuration/
+CHANNELS_FILE = os.path.join(_CONFIG_DIR, "channels.txt")
+MAP_FILE = os.path.join(_CONFIG_DIR, "map.txt")
+# ชื่อสั้นไว้แสดงใน log (ไม่ต้องโชว์ path เต็ม)
+CHANNELS_FILE_LABEL = "configuration/channels.txt"
+MAP_FILE_LABEL = "configuration/map.txt"
 REQUEST_TIMEOUT = 60
 APPS_SCRIPT_TIMEOUT = 120  # Apps Script บางครั้งตอบช้า
 MAX_RETRIES = 3
@@ -162,7 +177,7 @@ def load_sheet_name_map() -> dict[str, str]:
     """
     mapping: dict[str, str] = {}
     if not os.path.exists(MAP_FILE):
-        print(f"[map] ไม่พบ {MAP_FILE} - ใช้ชื่อช่องจาก API ตรงๆ")
+        print(f"[map] ไม่พบ {MAP_FILE_LABEL} - ใช้ชื่อช่องจาก API ตรงๆ")
         return mapping
 
     with open(MAP_FILE, encoding="utf-8") as fh:
@@ -178,7 +193,7 @@ def load_sheet_name_map() -> dict[str, str]:
                 continue
             mapping[src] = dst or src
 
-    print(f"[map] โหลด {len(mapping)} รายการจาก {MAP_FILE}")
+    print(f"[map] โหลด {len(mapping)} รายการจาก {MAP_FILE_LABEL}")
     return mapping
 
 
@@ -202,11 +217,11 @@ def build_sheets(
         grouped[sheet_name].add((pg_date, pg_time, pg_title))
 
     for channel in sorted(unmapped):
-        print(f"[map] เตือน: ช่อง {channel!r} ไม่มีใน {MAP_FILE} -> ใช้ชื่อเดิม")
+        print(f"[map] เตือน: ช่อง {channel!r} ไม่มีใน {MAP_FILE_LABEL} -> ใช้ชื่อเดิม")
 
     seen_api = {(r.get("channelName") or "").strip() for r in records}
     for key in sorted(k for k in name_map if k not in seen_api):
-        print(f"[map] เตือน: {MAP_FILE} มี {key!r} แต่ไม่พบช่องนี้ใน API")
+        print(f"[map] เตือน: {MAP_FILE_LABEL} มี {key!r} แต่ไม่พบช่องนี้ใน API")
 
     sheets: dict[str, list[list[str]]] = {}
     for sheet_name, rows in grouped.items():
@@ -281,9 +296,10 @@ def push_to_sheets(sheets: dict[str, list[list[str]]]) -> None:
 
 def write_channels_file(sheets: dict[str, list[list[str]]]) -> None:
     names = sorted(sheets.keys())
+    os.makedirs(_CONFIG_DIR, exist_ok=True)
     with open(CHANNELS_FILE, "w", encoding="utf-8") as fh:
         fh.write("\n".join(names) + "\n")
-    print(f"[channels] เขียน {CHANNELS_FILE} : {len(names)} ช่อง")
+    print(f"[channels] เขียน {CHANNELS_FILE_LABEL} : {len(names)} ช่อง")
 
 
 # --------------------------------------------------------------------------- #
