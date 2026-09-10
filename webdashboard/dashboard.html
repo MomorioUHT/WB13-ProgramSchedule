@@ -2838,7 +2838,7 @@
                     <span class="vs-hint" id="vsChartsHint">—</span>
                 </div>
                 <div class="vs-chart-box vs-chart-wide" id="vsDailyTrendBox" hidden>
-                    <div class="vs-chart-title" id="vsTrendTitle">ยอดวิวรวมรายชั่วโมง แยกตามสถานี (ผลรวมพีคสูงสุดของแต่ละรายการ)</div>
+                    <div class="vs-chart-title" id="vsTrendTitle">ยอดวิวรวมรายชั่วโมง แยกตามสถานี (ผลรวมทุกรายการ)</div>
                     <div class="vs-chart-canvas-wrap" style="height:420px;">
                         <canvas id="vsDailyTrendChart"></canvas>
                     </div>
@@ -5422,10 +5422,11 @@
            3.1 จำนวนสถานี / 3.3 รายการไม่ซ้ำ / 3.4 จำนวนหมวดหมู่ : นับจาก "แถว" ที่ผ่านตัวกรอง
                ช่อง/รายการ/ช่วงวัน/ช่วงเวลา/หมวดหมู่ (rows) — ไม่สนว่ามียอดวิวหรือเลือกแพลตฟอร์มใด
                (สถานีที่มีการออกอากาศแต่ยังไม่มี peak view ก็ถูกนับ → เห็นครบ 19 สถานี)
-           3.2 ยอดวิวรวมทั้งหมด : Σ ของทุกจุดในกราฟเส้น trend = `vsSumByCh(vsBuildTrendByChannel(viewed).byCh)`
+           3.2 ยอดวิวรวมทั้งหมด : `vsSumByCh(vsBuildTrendByChannel(viewed).byCh)`
                (ต่อรายการต่อวันเอาพีคสูงสุดข้ามแพลตฟอร์ม แล้วบวกกันหมด — ทุกรายการได้ถัง ไม่ตกหล่น)
-           3.5 peak concurrent views : จุดสูงสุด (max) ของ byCh ชุดเดียวกัน ข้ามทุกสถานี ทุกถังเวลา —
-               = จุดสูงสุดของกราฟเส้น trend เป๊ะ. เลือกตัวกรอง "รายการ" n รายการ → นับเฉพาะ n นั้น */
+           3.5 peak concurrent views : จุดสูงสุด (max) ของ `vsBuildTrendByChannelAll(viewed).byCh` ข้ามทุกสถานี
+               ทุกถังเวลา = **จุดสูงสุดของกราฟเส้น "ผลรวมทุกรายการ" เป๊ะ** (helper คนละตัวกับ 3.2).
+               เลือกตัวกรอง "รายการ" n รายการ → นับเฉพาะ n นั้น */
         function vsRenderKpis(entries, rows) {
             const panel = document.getElementById('vsKpiPanel');
             if (panel) panel.hidden = false;
@@ -5440,12 +5441,13 @@
                 categories.add(vsCategoryOf(r));
             });
 
-            // ยอดวิวรวมทั้งหมด + peak concurrent views — ใช้แกนรวมชุดเดียวกับกราฟเส้น (vsBuildTrendByChannel)
-            //   → การ์ด "ยอดวิวรวมทั้งหมด" = Σ ของทุกจุดในกราฟ, การ์ด peak = จุดสูงสุดของกราฟ (ตรงกันเป๊ะเสมอ)
+            // "ยอดวิวรวมทั้งหมด" (#vsKpiViews) — Σ ของกราฟเส้น trend เดิม (ต่อรายการต่อวันเอาพีคสูงสุดข้ามแพลตฟอร์ม)
             const viewed = entries.filter(e => e.views != null && e.views > 0);
-            const { byCh, res } = vsBuildTrendByChannel(viewed);
-            const totalViews = vsSumByCh(byCh);
+            const totalViews = vsSumByCh(vsBuildTrendByChannel(viewed).byCh);
 
+            // "peak concurrent views" (#vsKpiPeakDay) — จุดสูงสุด (max) ของกราฟเส้น
+            //   "ยอดวิวรวมราย<...> แยกตามสถานี (ผลรวมทุกรายการ)" = แกน vsBuildTrendByChannelAll เป๊ะ
+            const { byCh, res } = vsBuildTrendByChannelAll(viewed);
             let peakConcurrent = 0, peakConcCh = '', peakConcBucket = '';
             byCh.forEach((m, ch) => {
                 m.forEach((v, bk) => {
@@ -5534,6 +5536,49 @@
             return s;
         }
 
+        /* ---- แกนรวมของ "กราฟเส้น trend" แบบ "รวมทุกรายการ" — ใช้เฉพาะกราฟเส้นนี้เท่านั้น ----
+           ต่างจาก vsBuildTrendByChannel: ไม่ยุบ (สถานี, ชื่อ, วัน) ให้เหลือพีคสูงสุดข้ามแพลตฟอร์ม
+           แต่บวก `e.views` ของ **ทุก entry** (ทุกแพลตฟอร์ม ทุกครั้งที่ออกอากาศ) เข้าถังเวลา
+           ของ entry นั้นเอง (เวลาพีคของแพลตฟอร์มนั้น → fallback เวลาออกอากาศ → ถัง 00)
+           การ์ด KPI "ยอดวิวรวมทั้งหมด" / "peak concurrent views" และข้อความสรุปใต้กราฟ
+           ยังใช้ vsBuildTrendByChannel เหมือนเดิม — ไม่กระทบ
+           คืน { byCh, buckets, res, resLabel } รูปแบบเดียวกับ vsBuildTrendByChannel */
+        function vsBuildTrendByChannelAll(viewed) {
+            const daySet = new Set();
+            viewed.forEach(e => { const ds = vsDateSortable(e.date); if (ds !== '9999-99-99') daySet.add(ds); });
+            const dayCount = daySet.size;
+            const res = dayCount <= 21 ? 'hour' : (dayCount <= 370 ? 'day' : 'week');
+            const resLabel = res === 'hour' ? 'รายชั่วโมง' : (res === 'day' ? 'รายวัน' : 'รายสัปดาห์');
+            const DAY_MS = 86400000;
+
+            const bucketKeyOf = e => {
+                const ds = vsDateSortable(e.date);   // '9999-99-99' ถ้าวันที่พัง — ยังนับรวม (ไปกองท้ายแกน)
+                if (res === 'hour') {
+                    const hh = vsHourOf(e.peakTime || e.scheduleTime);
+                    return ds + ' ' + (hh == null ? '00' : hh);   // ไม่มีเวลา → ถัง 00
+                }
+                if (res === 'day' || ds === '9999-99-99') return ds;
+                const pt = ds.split('-');
+                const t = Date.UTC(+pt[0], +pt[1] - 1, +pt[2]);
+                const w = new Date(t - (Math.floor(t / DAY_MS) % 7) * DAY_MS);
+                return w.getUTCFullYear() + '-' + String(w.getUTCMonth() + 1).padStart(2, '0') + '-' + String(w.getUTCDate()).padStart(2, '0');
+            };
+
+            const byCh = new Map();      // channel -> Map(bucketKey -> sum)
+            const bucketSet = new Set();
+            viewed.forEach(e => {
+                if (e.views == null || !(e.views > 0)) return;
+                const bk = bucketKeyOf(e);
+                bucketSet.add(bk);
+                const ch = e.channel || '';
+                if (!byCh.has(ch)) byCh.set(ch, new Map());
+                const m = byCh.get(ch);
+                m.set(bk, (m.get(bk) || 0) + e.views);
+            });
+
+            return { byCh, buckets: Array.from(bucketSet).sort(), res, resLabel };
+        }
+
         /* ---- กราฟหน้า Live View Stats (วางเหนือตารางข้อมูลดิบ) ----
            รับ entries ชุดเดียวกับตาราง (ผ่านตัวกรอง ช่อง / รายการ / ช่วงวัน / ช่วงเวลาออกอากาศ /
            แพลตฟอร์ม / หมวดหมู่ แล้ว) จากนั้นรวมยอดวิวเป็นราย "รายการ" โดยเอาค่าพีคสูงสุด
@@ -5554,11 +5599,16 @@
             const trendTotal = vsSumByCh(trend.byCh);   // = การ์ด "ยอดวิวรวมทั้งหมด"
 
             // รวมเป็นราย "รายการ" = ช่อง + ชื่อรายการ, ใช้ยอดพีคสูงสุดข้ามแพลตฟอร์ม
+            //   + จำวัน/เวลาออกอากาศของรอบที่ทำพีคสูงสุดนั้น (ใช้ใน tooltip กราฟ Top N)
             const progMap = new Map();
             viewed.forEach(e => {
                 const key = e.channel + ' ┃ ' + e.title;
-                const cur = progMap.get(key) || { channel: e.channel, title: e.title, category: e.category || 'ไม่ระบุ', views: 0 };
-                cur.views = Math.max(cur.views, e.views);
+                const cur = progMap.get(key) || { channel: e.channel, title: e.title, category: e.category || 'ไม่ระบุ', views: 0, airDate: null, airTime: null };
+                if (e.views > cur.views) {
+                    cur.views = e.views;
+                    cur.airDate = e.date || null;
+                    cur.airTime = e.scheduleTime || null;
+                }
                 progMap.set(key, cur);
             });
             const programs = Array.from(progMap.values());
@@ -5760,6 +5810,14 @@
                                     const p = topProgs[items[0].dataIndex];
                                     return p.title + ' — ' + p.channel;
                                 },
+                                afterTitle: items => {
+                                    const p = topProgs[items[0].dataIndex];
+                                    if (!p.airDate && !p.airTime) return '';
+                                    const d = vsFormatDate(p.airDate);
+                                    const t = vsFormatTime(p.airTime);
+                                    const when = t ? `${d} - ${t}` : d;
+                                    return ['', 'ออกอากาศเมื่อ ' + when];
+                                },
                                 label: ctx => ' ' + Number(ctx.parsed.x).toLocaleString('en-US') + ' วิว'
                             }
                         }
@@ -5853,13 +5911,14 @@
             });
 
             /* ---------- กราฟเส้น: ยอดวิวรวม แยกตามสถานี (บรรทัดของตัวเอง เต็มความกว้าง บนสุด) ----------
-               - ต่อรายการ (สถานี+ชื่อ+วัน) เอาพีคสูงสุดข้ามแพลตฟอร์ม + เวลาพีคของแพลตฟอร์มที่พีคสูงสุด
+               - รวม "ทุกรายการ ทุกแพลตฟอร์ม ทุกครั้งที่ออกอากาศ" (ไม่ยุบเป็นพีคสูงสุดแบบการ์ด KPI)
+                 → ใช้ vsBuildTrendByChannelAll ไม่ใช่ `trend` ที่ใช้ร่วมกับการ์ด KPI
                - ความละเอียดปรับอัตโนมัติตามจำนวนวันที่มีข้อมูล: <=21 วัน = รายชั่วโมง, <=370 = รายวัน, มากกว่านั้น = รายสัปดาห์
                  (กันจุดบนกราฟระเบิดเป็นหลักหมื่นเมื่อข้อมูลยาวหลายปี)
                - แกน X = เฉพาะถังเวลาที่ "มีข้อมูล" ; เส้นที่ขาดช่วงลากข้าม (spanGaps) */
             {
-                // แกนรวมเดียวกับการ์ด KPI (คำนวณไว้แล้วด้านบน = `trend`)
-                const { byCh, buckets, res, resLabel } = trend;
+                // กราฟเส้นนี้ = ผลรวมยอดวิวของ "ทุกรายการ" (แกนของตัวเอง ไม่ใช่ `trend` ของการ์ด KPI)
+                const { byCh, buckets, res, resLabel } = vsBuildTrendByChannelAll(viewed);
                 const fmtBucket = bk => {
                     const sp = bk.split(' ');
                     if (sp[0] === '9999-99-99') return res === 'hour' ? `ไม่ระบุวัน ${sp[1]}:00` : 'ไม่ระบุวัน';
@@ -5870,7 +5929,7 @@
 
                 const trendTitleEl = document.getElementById('vsTrendTitle');
                 if (trendTitleEl) trendTitleEl.textContent =
-                    `ยอดวิวรวม${resLabel} แยกตามสถานี (ผลรวมพีคสูงสุดของแต่ละรายการ)`;
+                    `ยอดวิวรวม${resLabel} แยกตามสถานี (ผลรวมทุกรายการ)`;
 
                 if (buckets.length === 0) {
                     if (trendBox) trendBox.hidden = true;
