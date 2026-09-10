@@ -1631,28 +1631,6 @@
             border-color: var(--border-focus);
         }
 
-        .vs-search {
-            flex: 1;
-            min-width: 180px;
-            max-width: 340px;
-            background: rgba(0, 0, 0, 0.35);
-            border: 1px solid var(--border-color);
-            color: var(--text-primary);
-            border-radius: var(--radius-sm);
-            padding: 8px 12px;
-            font-family: inherit;
-            font-size: 13px;
-        }
-
-        .vs-search:focus {
-            outline: none;
-            border-color: var(--border-focus);
-        }
-
-        .vs-search::placeholder {
-            color: var(--text-muted);
-        }
-
         .vs-table-wrap {
             overflow-x: auto;
             border-radius: var(--radius-md);
@@ -1909,35 +1887,45 @@
 
         .vs-filter-btn {
             flex: 0 0 auto;
+            align-self: flex-start;
+            margin-left: auto;
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            padding: 0 20px;
+            gap: 10px;
+            padding: 14px 26px;
             font-family: inherit;
-            font-size: 13px;
-            font-weight: 700;
-            color: var(--text-secondary);
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid var(--border-color);
+            font-size: 15px;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #1a1204;
+            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            border: 1px solid transparent;
             border-radius: var(--radius-md);
             cursor: pointer;
             transition: var(--transition);
             white-space: nowrap;
+            box-shadow: 0 6px 18px rgba(245, 158, 11, 0.35);
         }
 
         .vs-filter-btn:hover {
-            color: #ffffff;
-            border-color: var(--border-focus);
+            filter: brightness(1.06);
+            box-shadow: 0 8px 24px rgba(245, 158, 11, 0.5);
         }
 
         .vs-filter-btn.vs-open {
-            color: #1a1204;
-            background: linear-gradient(135deg, #fbbf24, #f59e0b);
+            color: #fde68a;
+            background: linear-gradient(135deg, #78350f, #92400e);
             border-color: transparent;
+            box-shadow: 0 6px 18px rgba(120, 53, 15, 0.4);
+        }
+
+        .vs-filter-btn .vs-filter-ico {
+            flex: 0 0 auto;
         }
 
         .vs-filter-btn .vs-filter-caret {
-            font-size: 9px;
+            font-size: 10px;
             transition: transform 0.2s ease;
         }
 
@@ -1978,6 +1966,123 @@
             text-transform: uppercase;
             letter-spacing: 0.04em;
             margin-bottom: 10px;
+        }
+
+        /* ---- ตัวกรอง "รายการ" — dropdown + checkbox list + ค้นหา ---- */
+        .vs-prog-dd {
+            position: relative;
+            max-width: 480px;
+        }
+
+        .vs-prog-dd-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            width: 100%;
+            padding: 10px 14px;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .vs-prog-dd-toggle:hover {
+            border-color: var(--border-focus);
+        }
+
+        .vs-prog-dd-toggle > span:first-child {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .vs-prog-dd-caret {
+            flex: 0 0 auto;
+            font-size: 9px;
+            transition: transform 0.2s ease;
+        }
+
+        .vs-prog-dd.vs-open .vs-prog-dd-caret {
+            transform: rotate(180deg);
+        }
+
+        .vs-prog-dd-panel {
+            position: absolute;
+            z-index: 40;
+            top: calc(100% + 6px);
+            left: 0;
+            right: 0;
+            padding: 12px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
+        }
+
+        .vs-prog-search {
+            width: 100%;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            font-family: inherit;
+            font-size: 13px;
+            color: var(--text-primary);
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+        }
+
+        .vs-prog-search:focus {
+            outline: none;
+            border-color: var(--border-focus);
+        }
+
+        .vs-prog-dd-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .vs-prog-list {
+            max-height: 260px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .vs-prog-opt {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 7px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .vs-prog-opt:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-primary);
+        }
+
+        .vs-prog-opt input {
+            flex: 0 0 auto;
+            accent-color: var(--accent-primary);
+        }
+
+        .vs-prog-empty {
+            padding: 10px 8px;
+            font-size: 12.5px;
+            color: var(--text-muted);
         }
 
         /* ---- แถบแบ่งหน้าตาราง ---- */
@@ -2600,12 +2705,6 @@
             <!-- KPI number cards + ปุ่มตัวกรองเดียว (ปรับตามตัวกรอง) -->
             <div class="vs-panel" id="vsKpiPanel" hidden>
                 <div class="vs-kpi-bar">
-                    <button type="button" class="vs-filter-btn" id="vsFilterBtn" onclick="vsToggleFilterPanel()"
-                        aria-expanded="false" aria-controls="vsFilterPanel">
-                        <span>ตัวกรอง</span>
-                        <span class="vs-filter-badge" id="vsFilterBadge" hidden>0</span>
-                        <span class="vs-filter-caret">▼</span>
-                    </button>
                     <div class="vs-kpi-grid">
                         <div class="vs-kpi-card" style="border-left-color:#6366f1;">
                             <div class="vs-kpi-value" id="vsKpiStations">–</div>
@@ -2613,7 +2712,11 @@
                         </div>
                         <div class="vs-kpi-card" style="border-left-color:#10b981;">
                             <div class="vs-kpi-value" id="vsKpiViews">–</div>
-                            <div class="vs-kpi-label">ยอดวิวรวม (พีคสูงสุด/รายการ/วัน)</div>
+                            <div class="vs-kpi-label">ยอดวิวทั้งหมด</div>
+                        </div>
+                        <div class="vs-kpi-card" style="border-left-color:#14b8a6;">
+                            <div class="vs-kpi-value" id="vsKpiPeakDay">–</div>
+                            <div class="vs-kpi-label" id="vsKpiPeakDayLabel">peak concurrent views</div>
                         </div>
                         <div class="vs-kpi-card" style="border-left-color:#f59e0b;">
                             <div class="vs-kpi-value" id="vsKpiPrograms">–</div>
@@ -2624,6 +2727,15 @@
                             <div class="vs-kpi-label">หมวดหมู่</div>
                         </div>
                     </div>
+                    <button type="button" class="vs-filter-btn" id="vsFilterBtn" onclick="vsToggleFilterPanel()"
+                        aria-expanded="false" aria-controls="vsFilterPanel">
+                        <svg class="vs-filter-ico" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                            <path fill="currentColor" d="M3 4h18l-7.2 8.4V21l-3.6-2.1v-6.5z" />
+                        </svg>
+                        <span>ตัวกรอง</span>
+                        <span class="vs-filter-badge" id="vsFilterBadge" hidden>0</span>
+                        <span class="vs-filter-caret">▼</span>
+                    </button>
                 </div>
             </div>
 
@@ -2631,7 +2743,29 @@
             <div class="vs-panel vs-filter-drawer" id="vsFilterPanel" hidden>
                 <div class="vs-filter-group">
                     <span class="vs-filter-group-title">เลือกช่อง</span>
+                    <span class="vs-hint" style="display:block;margin-bottom:10px;">เลือกได้หลายช่อง — รายการในตัวกรอง "รายการ" จะปรับตามช่องที่เลือก</span>
                     <div class="vs-chip-row" id="vsChannelChips"></div>
+                </div>
+
+                <div class="vs-filter-group">
+                    <span class="vs-filter-group-title">เลือกรายการ</span>
+                    <div class="vs-prog-dd" id="vsProgDD">
+                        <button type="button" class="vs-prog-dd-toggle" id="vsProgDDToggle"
+                            onclick="vsToggleProgDD()" aria-expanded="false">
+                            <span id="vsProgDDLabel">ทุกรายการ</span>
+                            <span class="vs-prog-dd-caret">▼</span>
+                        </button>
+                        <div class="vs-prog-dd-panel" id="vsProgDDPanel" hidden>
+                            <input type="text" id="vsProgSearch" class="vs-prog-search" autocomplete="off"
+                                placeholder="🔍 ค้นหาชื่อรายการ..." oninput="vsRenderProgramOptions()">
+                            <div class="vs-prog-dd-actions">
+                                <button type="button" class="vs-mini-btn" onclick="vsSetAllPrograms(true)">เลือกทั้งหมด</button>
+                                <button type="button" class="vs-mini-btn" onclick="vsSetAllPrograms(false)">ล้าง</button>
+                                <span class="vs-hint" id="vsProgCount" style="margin-left:auto;"></span>
+                            </div>
+                            <div class="vs-prog-list" id="vsProgList"></div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="vs-filter-group">
@@ -2741,8 +2875,7 @@
             <!-- Results -->
             <div class="vs-panel">
                 <div class="vs-panel-head" style="flex-wrap:wrap;">
-                    <input type="text" id="vsSearch" class="vs-search" placeholder="🔍 ค้นหาชื่อรายการ..."
-                        oninput="vsSearchDebounced()">
+                    <span class="vs-hint">ค้นหา/กรองชื่อรายการได้ที่ปุ่ม “ตัวกรอง” ด้านบน</span>
                     <span style="display:flex;align-items:center;gap:14px;">
                         <label class="vs-hint" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
                             <input type="checkbox" id="vsOnlyWithViews" checked onchange="vsRender()"
@@ -4450,7 +4583,7 @@
         let vsRawRows = [];
         let vsLoaded = false;
         let vsLoading = false;
-        let vsSelectedChannel = '__ALL__';
+        let vsSelectedChannels = new Set();   // multi-select — ว่าง = ทุกช่อง
         let vsPreset = 'all';                       // 'all' | '7d' | 'yesterday' | 'today' | 'custom'
         let vsCustomFrom = null;
         let vsCustomTo = null;
@@ -4463,8 +4596,11 @@
         let vsFilteredEntries = [];
         let vsPage = 0;
         const VS_PAGE_SIZE = 100;
-        let vsSearchTimer = null;
-        const VS_K = '\u0001';   // ตัวคั่นคีย์ Map (อักขระที่ไม่มีทางอยู่ในข้อมูลจริง) — เร็วกว่า JSON.stringify
+
+        // ตัวกรอง 'รายการ' (ชื่อรายการ, multi-select ผ่าน dropdown + ค้นหา) — ว่าง = ไม่กรอง (แสดงทุกรายการ)
+        let vsSelectedTitles = new Set();
+        let vsAllTitles = [];
+        const VS_K ='\u0001';   // ตัวคั่นคีย์ Map (อักขระที่ไม่มีทางอยู่ในข้อมูลจริง) — เร็วกว่า JSON.stringify
 
         // ตัวกรอง 'หมวดหมู่' (multi-select) — ใช้ค่าดิบจากคอลัมน์ D "หมวดหมู่" ของชีท 'View Stats'
         // (เป็น genre ของรายการทีวี เช่น "ข่าวทั่วไป", "ซีรี่ย์/ละคร", "กีฬา" — ไม่ใช่หมวดข่าว 7 แบบของหน้าแรก)
@@ -4673,6 +4809,7 @@
                 `<span class="dot-pulse"></span> Live Sheet Synced (${t.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })})`;
 
             vsBuildChannelChips();
+            vsBuildProgramList();
             vsBuildCategories();
             vsBuildCategoryChips();
             vsRender();
@@ -4693,29 +4830,78 @@
         }
 
         // ---- Controls ----
-        function vsBuildChannelChips() {
-            const channels = Array.from(new Set(vsRawRows.map(r => r.channel).filter(Boolean)))
-                .sort((a, b) => a.localeCompare(b, 'th'));
-            if (!channels.includes(vsSelectedChannel) && vsSelectedChannel !== '__ALL__') {
-                vsSelectedChannel = '__ALL__';
+
+        /* ตัวกรอง "ช่อง" กับ "รายการ" ผูกกัน (sync สองทาง):
+           - ช่องที่เลือกได้ = เฉพาะช่องที่มีรายการที่เลือกไว้ (ถ้าไม่เลือกรายการ = ทุกช่อง)
+           - รายการที่เลือกได้ = เฉพาะรายการของช่องที่เลือกไว้ (ถ้าไม่เลือกช่อง = ทุกรายการ)
+           ทั้ง `vsSelectedChannels` และ `vsSelectedTitles` ว่าง = ไม่กรอง */
+        function vsAvailableChannels() {
+            const s = new Set();
+            const restrict = vsSelectedTitles.size > 0;
+            vsRawRows.forEach(r => {
+                if (!r.channel) return;
+                if (restrict && !vsSelectedTitles.has(String(r.title || '').trim())) return;
+                s.add(r.channel);
+            });
+            return Array.from(s).sort((a, b) => a.localeCompare(b, 'th'));
+        }
+
+        function vsAvailableTitles() {
+            const s = new Set();
+            const restrict = vsSelectedChannels.size > 0;
+            vsRawRows.forEach(r => {
+                if (restrict && !vsSelectedChannels.has(r.channel)) return;
+                const t = String(r.title || '').trim();
+                if (t) s.add(t);
+            });
+            return Array.from(s).sort((a, b) => a.localeCompare(b, 'th'));
+        }
+
+        // เรียกหลังทุกครั้งที่ vsSelectedChannels / vsSelectedTitles เปลี่ยน — prune ตัวเลือกที่ไม่มีอยู่จริง + วาดใหม่ทั้งคู่
+        function vsSyncChannelTitleFilters() {
+            // prune วนจนนิ่ง (กันกรณีตัดช่องแล้วทำให้รายการแคบลงอีก หรือกลับกัน) — อย่างมาก 3 รอบ
+            for (let i = 0; i < 3; i++) {
+                const chans = vsAvailableChannels();
+                const cBefore = vsSelectedChannels.size;
+                [...vsSelectedChannels].forEach(ch => { if (!chans.includes(ch)) vsSelectedChannels.delete(ch); });
+                vsAllTitles = vsAvailableTitles();
+                const tBefore = vsSelectedTitles.size;
+                [...vsSelectedTitles].forEach(t => { if (!vsAllTitles.includes(t)) vsSelectedTitles.delete(t); });
+                if (vsSelectedChannels.size === cBefore && vsSelectedTitles.size === tBefore) break;
             }
+            vsBuildChannelChips();
+            vsRenderProgramOptions();
+            vsUpdateProgramLabel();
+        }
+
+        function vsBuildChannelChips() {
+            const channels = vsAvailableChannels();
+            [...vsSelectedChannels].forEach(ch => { if (!channels.includes(ch)) vsSelectedChannels.delete(ch); });
+
             const wrap = document.getElementById('vsChannelChips');
             wrap.innerHTML = '';
 
-            const mk = (value, label) => {
+            const mk = (label, isActive, onClick) => {
                 const b = document.createElement('button');
-                b.className = 'vs-chip' + (vsSelectedChannel === value ? ' active' : '');
+                b.type = 'button';
+                b.className = 'vs-chip' + (isActive ? ' active' : '');
                 b.textContent = label;
-                b.onclick = () => {
-                    vsSelectedChannel = value;
-                    wrap.querySelectorAll('.vs-chip').forEach(c => c.classList.remove('active'));
-                    b.classList.add('active');
-                    vsRender();
-                };
+                b.onclick = onClick;
                 wrap.appendChild(b);
             };
-            mk('__ALL__', 'ทุกช่อง');
-            channels.forEach(ch => mk(ch, ch));
+
+            mk('ทุกช่อง', vsSelectedChannels.size === 0, () => {
+                if (vsSelectedChannels.size === 0) return;
+                vsSelectedChannels.clear();
+                vsSyncChannelTitleFilters();
+                vsRender();
+            });
+            channels.forEach(ch => mk(ch, vsSelectedChannels.has(ch), () => {
+                if (vsSelectedChannels.has(ch)) vsSelectedChannels.delete(ch);
+                else vsSelectedChannels.add(ch);
+                vsSyncChannelTitleFilters();
+                vsRender();
+            }));
         }
 
         // ---- ตัวกรองหมวดหมู่ (multi-select) ----
@@ -4927,16 +5113,15 @@
 
             const showDate = vsPreset !== 'today';
             const onlyWithViews = document.getElementById('vsOnlyWithViews').checked;
-            const query = document.getElementById('vsSearch').value.trim().toLowerCase();
             const timeFrom = document.getElementById('vsTimeFrom').value;   // 'HH:mm' หรือ ''
             const timeTo = document.getElementById('vsTimeTo').value;
             const entries = [];
-            const matchedRows = [];   // แถวที่ผ่านตัวกรอง ช่อง/ช่วงวัน/ช่วงเวลา/หมวดหมู่/คำค้น (ก่อนกรองแพลตฟอร์ม/มียอดวิว)
+            const matchedRows = [];   // แถวที่ผ่านตัวกรอง ช่อง/รายการ/ช่วงวัน/ช่วงเวลา/หมวดหมู่ (ก่อนกรองแพลตฟอร์ม/มียอดวิว)
 
             vsRawRows.forEach(r => {
-                if (vsSelectedChannel !== '__ALL__' && r.channel !== vsSelectedChannel) return;
+                if (vsSelectedChannels.size && !vsSelectedChannels.has(r.channel)) return;
                 if (!vsRowInTimeframe(r.date)) return;
-                if (query && !String(r.title || '').toLowerCase().includes(query)) return;
+                if (vsSelectedTitles.size && !vsSelectedTitles.has(String(r.title || '').trim())) return;
 
                 // 'หมวดหมู่' (genre) — payload จาก Apps Script ส่งมาในคีย์ 'genre' (มี 'category' เป็น fallback)
                 // normalize เข้ากลุ่มมาตรฐาน แล้วกรองตาม chip ที่ผู้ใช้เลือก
@@ -5008,13 +5193,18 @@
 
             vsUpdateSortHeaders();
             vsUpdateFilterButton();
-            vsRenderKpis(entries, matchedRows);
-            vsRenderCharts(entries);
 
             // เก็บผลทั้งชุด แล้วแสดงตารางทีละหน้า (เริ่มหน้าแรกทุกครั้งที่ตัวกรอง/การเรียงเปลี่ยน)
+            // ⚠️ ต้องทำ "ก่อน" การ์ด KPI / กราฟ — ถ้ากราฟ error ตาราง + footer จะได้ไม่ค้างที่ค่าเดิม
             vsFilteredEntries = entries;
             vsPage = 0;
             vsRenderTable();
+
+            // การ์ด KPI + กราฟ — แยก try/catch แต่ละส่วน ไม่ให้ error ลามไปหยุดส่วนอื่น
+            try { vsRenderKpis(entries, matchedRows); }
+            catch (err) { console.error('vsRenderKpis error:', err); }
+            try { vsRenderCharts(entries); }
+            catch (err) { console.error('vsRenderCharts error:', err); }
         }
 
         /* ---- แสดงตารางเฉพาะหน้าปัจจุบัน (VS_PAGE_SIZE แถว/หน้า) — กันค้างเมื่อผลลัพธ์หลักหมื่น+ ---- */
@@ -5094,10 +5284,86 @@
             if (w) w.scrollIntoView({ block: 'nearest' });
         }
 
-        // ดีเลย์การค้นหา — กัน vsRender() วิ่งทุก keystroke (แพงมากเมื่อ record เยอะ)
-        function vsSearchDebounced() {
-            clearTimeout(vsSearchTimer);
-            vsSearchTimer = setTimeout(vsRender, 220);
+        /* ---- ตัวกรอง "รายการ" (ชื่อรายการ) — dropdown + checkbox list + ค้นหา ----
+           แทนที่ช่องค้นหาชื่อรายการเดิมที่อยู่เหนือตาราง (ตอนนี้กรองที่นี่ที่เดียว)
+           `vsSelectedTitles` ว่าง = ไม่กรอง (แสดงทุกรายการ) */
+        function vsBuildProgramList() {
+            vsAllTitles = vsAvailableTitles();   // รายการที่เลือกได้ = ตามช่องที่เลือกไว้
+            // re-sync: ตัดชื่อรายการที่ไม่มีในลิสต์ปัจจุบันออก
+            [...vsSelectedTitles].forEach(t => { if (!vsAllTitles.includes(t)) vsSelectedTitles.delete(t); });
+            const s = document.getElementById('vsProgSearch');
+            if (s) s.value = '';
+            vsRenderProgramOptions();
+            vsUpdateProgramLabel();
+        }
+
+        function vsRenderProgramOptions() {
+            const list = document.getElementById('vsProgList');
+            if (!list) return;
+            const q = String((document.getElementById('vsProgSearch') || {}).value || '').trim().toLowerCase();
+            const shown = q ? vsAllTitles.filter(t => t.toLowerCase().includes(q)) : vsAllTitles;
+
+            const cnt = document.getElementById('vsProgCount');
+            if (cnt) cnt.textContent = vsSelectedTitles.size
+                ? `เลือก ${vsSelectedTitles.size}/${vsAllTitles.length}`
+                : `ทั้งหมด (${vsAllTitles.length})`;
+
+            if (vsAllTitles.length === 0) {
+                list.innerHTML = '<div class="vs-prog-empty">ไม่มีข้อมูลรายการในชีท</div>';
+                return;
+            }
+            if (shown.length === 0) {
+                list.innerHTML = '<div class="vs-prog-empty">ไม่พบชื่อรายการที่ตรงกับคำค้น</div>';
+                return;
+            }
+            list.innerHTML = '';
+            shown.forEach(t => {
+                const lab = document.createElement('label');
+                lab.className = 'vs-prog-opt';
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.checked = vsSelectedTitles.has(t);
+                cb.onchange = () => {
+                    if (cb.checked) vsSelectedTitles.add(t); else vsSelectedTitles.delete(t);
+                    vsSyncChannelTitleFilters();   // ช่องที่เลือกได้ปรับตามรายการที่เลือก
+                    vsRender();
+                };
+                const span = document.createElement('span');
+                span.textContent = t;
+                lab.appendChild(cb);
+                lab.appendChild(span);
+                list.appendChild(lab);
+            });
+        }
+
+        function vsUpdateProgramLabel() {
+            const el = document.getElementById('vsProgDDLabel');
+            if (!el) return;
+            const n = vsSelectedTitles.size;
+            if (n === 0 || n === vsAllTitles.length) el.textContent = 'ทุกรายการ';
+            else if (n === 1) el.textContent = [...vsSelectedTitles][0];
+            else el.textContent = `เลือก ${n} รายการ`;
+        }
+
+        function vsSetAllPrograms(on) {
+            vsSelectedTitles = on ? new Set(vsAllTitles) : new Set();
+            vsSyncChannelTitleFilters();
+            vsRender();
+        }
+
+        function vsToggleProgDD(forceOpen) {
+            const dd = document.getElementById('vsProgDD');
+            const panel = document.getElementById('vsProgDDPanel');
+            const tog = document.getElementById('vsProgDDToggle');
+            if (!dd || !panel) return;
+            const open = (typeof forceOpen === 'boolean') ? forceOpen : panel.hidden;
+            panel.hidden = !open;
+            dd.classList.toggle('vs-open', open);
+            if (tog) tog.setAttribute('aria-expanded', open ? 'true' : 'false');
+            if (open) {
+                const s = document.getElementById('vsProgSearch');
+                if (s) setTimeout(() => s.focus(), 0);
+            }
         }
 
         /* ---- ปุ่มตัวกรองเดียว: กดเพื่อเปิด/ปิดลิ้นชักที่รวมทั้ง 4 ตัวกรอง ---- */
@@ -5116,7 +5382,8 @@
         /* ---- อัปเดตป้ายจำนวนตัวกรองที่ "ไม่ใช่ค่าเริ่มต้น" บนปุ่มตัวกรอง ---- */
         function vsUpdateFilterButton() {
             let n = 0;
-            if (vsSelectedChannel !== '__ALL__') n++;
+            if (vsSelectedChannels.size) n++;
+            if (vsSelectedTitles.size && vsSelectedTitles.size !== vsAllTitles.length) n++;
 
             const f = (document.getElementById('vsFrom') || {}).value || '';
             const t = (document.getElementById('vsTo') || {}).value || '';
@@ -5138,9 +5405,12 @@
 
         /* ---- การ์ดตัวเลข KPI — อัปเดตทุกครั้งที่ตัวกรองเปลี่ยน ----
            3.1 จำนวนสถานี / 3.3 รายการไม่ซ้ำ / 3.4 จำนวนหมวดหมู่ : นับจาก "แถว" ที่ผ่านตัวกรอง
-               ช่อง/ช่วงวัน/ช่วงเวลา/หมวดหมู่/คำค้น (rows) — ไม่สนว่ามียอดวิวหรือเลือกแพลตฟอร์มใด
+               ช่อง/รายการ/ช่วงวัน/ช่วงเวลา/หมวดหมู่ (rows) — ไม่สนว่ามียอดวิวหรือเลือกแพลตฟอร์มใด
                (สถานีที่มีการออกอากาศแต่ยังไม่มี peak view ก็ถูกนับ → เห็นครบ 19 สถานี)
-           3.2 ยอดวิวรวม : Σ พีคสูงสุดข้ามแพลตฟอร์ม ต่อรายการ ต่อวัน จาก entries (เคารพทุกตัวกรอง) */
+           3.2 ยอดวิวรวมทั้งหมด : Σ ของทุกจุดในกราฟเส้น trend = `vsSumByCh(vsBuildTrendByChannel(viewed).byCh)`
+               (ต่อรายการต่อวันเอาพีคสูงสุดข้ามแพลตฟอร์ม แล้วบวกกันหมด — ทุกรายการได้ถัง ไม่ตกหล่น)
+           3.5 peak concurrent views : จุดสูงสุด (max) ของ byCh ชุดเดียวกัน ข้ามทุกสถานี ทุกถังเวลา —
+               = จุดสูงสุดของกราฟเส้น trend เป๊ะ. เลือกตัวกรอง "รายการ" n รายการ → นับเฉพาะ n นั้น */
         function vsRenderKpis(entries, rows) {
             const panel = document.getElementById('vsKpiPanel');
             if (panel) panel.hidden = false;
@@ -5155,26 +5425,103 @@
                 categories.add(vsCategoryOf(r));
             });
 
-            const dailyMax = new Map(); // 'channel|title|date' -> พีคสูงสุดข้ามแพลตฟอร์มของวันนั้น
-            entries.forEach(e => {
-                if (e.views != null && e.views > 0) {
-                    const k = (e.channel || '') + VS_K + (e.title || '') + VS_K + (e.date || '');
-                    dailyMax.set(k, Math.max(dailyMax.get(k) || 0, e.views));
-                }
+            // ยอดวิวรวมทั้งหมด + peak concurrent views — ใช้แกนรวมชุดเดียวกับกราฟเส้น (vsBuildTrendByChannel)
+            //   → การ์ด "ยอดวิวรวมทั้งหมด" = Σ ของทุกจุดในกราฟ, การ์ด peak = จุดสูงสุดของกราฟ (ตรงกันเป๊ะเสมอ)
+            const viewed = entries.filter(e => e.views != null && e.views > 0);
+            const { byCh, res } = vsBuildTrendByChannel(viewed);
+            const totalViews = vsSumByCh(byCh);
+
+            let peakConcurrent = 0, peakConcCh = '', peakConcBucket = '';
+            byCh.forEach((m, ch) => {
+                m.forEach((v, bk) => {
+                    if (v > peakConcurrent) { peakConcurrent = v; peakConcCh = ch; peakConcBucket = bk; }
+                });
             });
-            let totalViews = 0;
-            dailyMax.forEach(v => { totalViews += v; });
+            let pcWhen = '';
+            if (peakConcBucket) {
+                const sp = peakConcBucket.split(' ');       // 'YYYY-MM-DD' หรือ 'YYYY-MM-DD HH'
+                const badDate = sp[0] === '9999-99-99';
+                const d = sp[0].split('-');
+                const dateStr = badDate ? 'ไม่ระบุวัน' : (d.length === 3 ? `${d[2]}/${d[1]}/${d[0]}` : sp[0]);
+                pcWhen = `${peakConcCh} · ${dateStr}${res === 'hour' && sp[1] && !badDate ? ' ' + sp[1] + ':00' : ''}`;
+            }
 
             const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
             set('vsKpiStations', stations.size.toLocaleString('en-US'));
             set('vsKpiViews', totalViews.toLocaleString('en-US'));
+            set('vsKpiPeakDay', peakConcurrent.toLocaleString('en-US'));
+            set('vsKpiPeakDayLabel', pcWhen
+                ? `peak concurrent views (${pcWhen})`
+                : 'peak concurrent views');
             set('vsKpiPrograms', programs.size.toLocaleString('en-US'));
             set('vsKpiCategories', categories.size.toLocaleString('en-US'));
         }
 
+        /* ---- แกนรวมของ "กราฟเส้น trend" — ใช้ร่วมกันโดย vsRenderCharts (วาดเส้น),
+               การ์ด "ยอดวิวรวมทั้งหมด" (#vsKpiViews) และ "peak concurrent views" (#vsKpiPeakDay) ----
+           1) ต่อ (สถานี, ชื่อ, วัน) เอา "พีคสูงสุดข้ามแพลตฟอร์ม" (`Math.max` ของ peak_view ทั้ง 4 แพลตฟอร์ม)
+              + เวลาพีคของแพลตฟอร์มที่สูงสุดนั้น — ตรงกับนิยาม "ยอดวิวรวมทั้งหมด" เดิม (Σ dailyMax)
+           2) เลือกความละเอียดถังเวลาจากจำนวนวันที่มีข้อมูล: ≤21 = รายชั่วโมง, ≤370 = รายวัน, มากกว่า = รายสัปดาห์
+           3) Σ ต่อ (สถานี, ถังเวลา) — **ทุกรายการต้องได้ถัง ไม่ตกหล่น** (ไม่มีเวลา → ถัง 00,
+              วันที่พัง → ถัง '9999-99-99') เพื่อให้ Σ ของ byCh == การ์ด "ยอดวิวรวมทั้งหมด" เป๊ะ
+           คืน { byCh: Map(channel -> Map(bucket -> sum)), buckets, res, resLabel } */
+        function vsBuildTrendByChannel(viewed) {
+            const progPeak = new Map(); // 'channel|title|date' -> {channel, date, views(max), when}
+            viewed.forEach(e => {
+                const key = (e.channel || '') + VS_K + (e.title || '') + VS_K + (e.date || '');
+                const cur = progPeak.get(key);
+                if (!cur || e.views > cur.views) {
+                    progPeak.set(key, {
+                        channel: e.channel || '', date: e.date || '',
+                        views: e.views, when: e.peakTime || e.scheduleTime || null
+                    });
+                }
+            });
+
+            const daySet = new Set();
+            progPeak.forEach(p => { const ds = vsDateSortable(p.date); if (ds !== '9999-99-99') daySet.add(ds); });
+            const dayCount = daySet.size;
+            const res = dayCount <= 21 ? 'hour' : (dayCount <= 370 ? 'day' : 'week');
+            const resLabel = res === 'hour' ? 'รายชั่วโมง' : (res === 'day' ? 'รายวัน' : 'รายสัปดาห์');
+            const DAY_MS = 86400000;
+
+            const bucketKeyOf = p => {
+                const ds = vsDateSortable(p.date);   // '9999-99-99' ถ้าวันที่พัง — ยังนับรวม (ไปกองท้ายแกน)
+                if (res === 'hour') {
+                    const hh = vsHourOf(p.when);
+                    return ds + ' ' + (hh == null ? '00' : hh);   // ไม่มีเวลา → ถัง 00
+                }
+                if (res === 'day' || ds === '9999-99-99') return ds;
+                const pt = ds.split('-');
+                const t = Date.UTC(+pt[0], +pt[1] - 1, +pt[2]);
+                const w = new Date(t - (Math.floor(t / DAY_MS) % 7) * DAY_MS);
+                return w.getUTCFullYear() + '-' + String(w.getUTCMonth() + 1).padStart(2, '0') + '-' + String(w.getUTCDate()).padStart(2, '0');
+            };
+
+            const byCh = new Map();      // channel -> Map(bucketKey -> sum)
+            const bucketSet = new Set();
+            progPeak.forEach(p => {
+                const bk = bucketKeyOf(p);
+                bucketSet.add(bk);
+                const ch = p.channel || '';
+                if (!byCh.has(ch)) byCh.set(ch, new Map());
+                const m = byCh.get(ch);
+                m.set(bk, (m.get(bk) || 0) + p.views);
+            });
+
+            return { byCh, buckets: Array.from(bucketSet).sort(), res, resLabel };
+        }
+
+        // Σ ของทุกค่าใน byCh (= "ยอดวิวรวมทั้งหมด" — ต่อรายการต่อวันเอาพีคสูงสุดข้ามแพลตฟอร์ม แล้วบวกกันหมด)
+        function vsSumByCh(byCh) {
+            let s = 0;
+            byCh.forEach(m => m.forEach(v => { s += v; }));
+            return s;
+        }
+
         /* ---- กราฟหน้า Live View Stats (วางเหนือตารางข้อมูลดิบ) ----
-           รับ entries ชุดเดียวกับตาราง (ผ่านตัวกรอง ช่อง / ช่วงวัน / ช่วงเวลาออกอากาศ /
-           แพลตฟอร์ม / คำค้น แล้ว) จากนั้นรวมยอดวิวเป็นราย "รายการ" โดยเอาค่าพีคสูงสุด
+           รับ entries ชุดเดียวกับตาราง (ผ่านตัวกรอง ช่อง / รายการ / ช่วงวัน / ช่วงเวลาออกอากาศ /
+           แพลตฟอร์ม / หมวดหมู่ แล้ว) จากนั้นรวมยอดวิวเป็นราย "รายการ" โดยเอาค่าพีคสูงสุด
            ข้ามแพลตฟอร์มของแต่ละรายการ                                                */
         function vsRenderCharts(entries) {
             const panel = document.getElementById('vsChartsPanel');
@@ -5186,6 +5533,10 @@
 
             // เก็บเฉพาะรายการที่มียอดวิวจริง
             const viewed = entries.filter(e => e.views !== null && e.views !== undefined && e.views > 0);
+
+            // แกนรวมของกราฟเส้น trend (ใช้ร่วมกับการ์ด KPI) — คำนวณครั้งเดียว
+            const trend = vsBuildTrendByChannel(viewed);
+            const trendTotal = vsSumByCh(trend.byCh);   // = การ์ด "ยอดวิวรวมทั้งหมด"
 
             // รวมเป็นราย "รายการ" = ช่อง + ชื่อรายการ, ใช้ยอดพีคสูงสุดข้ามแพลตฟอร์ม
             const progMap = new Map();
@@ -5326,9 +5677,10 @@
                 }
             };
 
+            // grandTotal = Σ พีคสูงสุดต่อรายการ (ข้ามวัน) — ใช้เป็นฐาน % ของกราฟวงกลมเท่านั้น
             const grandTotal = programs.reduce((s, p) => s + p.views, 0);
             hintEl.textContent =
-                `${programs.length} รายการ • รวม ${grandTotal.toLocaleString('en-US')} วิว`;
+                `${programs.length} รายการ • ยอดวิวรวมทั้งหมด ${trendTotal.toLocaleString('en-US')} วิว`;
 
             /* ---------- กราฟที่ 1: แท่งแนวนอน ยอดวิวสูงสุดรายรายการ ---------- */
             const sortedProgs = programs.slice().sort((a, b) => b.views - a.views);
@@ -5491,48 +5843,11 @@
                  (กันจุดบนกราฟระเบิดเป็นหลักหมื่นเมื่อข้อมูลยาวหลายปี)
                - แกน X = เฉพาะถังเวลาที่ "มีข้อมูล" ; เส้นที่ขาดช่วงลากข้าม (spanGaps) */
             {
-                const progPeak = new Map(); // 'channel|title|date' -> {channel, date, views(max), when}
-                viewed.forEach(e => {
-                    const key = e.channel + VS_K + e.title + VS_K + e.date;
-                    const cur = progPeak.get(key);
-                    if (!cur || e.views > cur.views) {
-                        progPeak.set(key, { channel: e.channel, date: e.date, views: e.views, when: e.peakTime || e.scheduleTime || null });
-                    }
-                });
-
-                // เลือกความละเอียดจากจำนวน "วัน" ที่มีข้อมูล
-                const daySet = new Set();
-                progPeak.forEach(p => { const ds = vsDateSortable(p.date); if (ds !== '9999-99-99') daySet.add(ds); });
-                const dayCount = daySet.size;
-                const res = dayCount <= 21 ? 'hour' : (dayCount <= 370 ? 'day' : 'week');
-                const resLabel = res === 'hour' ? 'รายชั่วโมง' : (res === 'day' ? 'รายวัน' : 'รายสัปดาห์');
-                const DAY_MS = 86400000;
-
-                const bucketKeyOf = p => {
-                    const ds = vsDateSortable(p.date);
-                    if (ds === '9999-99-99') return null;
-                    if (res === 'hour') { const hh = vsHourOf(p.when); return hh == null ? null : ds + ' ' + hh; }
-                    if (res === 'day') return ds;
-                    const pt = ds.split('-');
-                    const t = Date.UTC(+pt[0], +pt[1] - 1, +pt[2]);
-                    const w = new Date(t - (Math.floor(t / DAY_MS) % 7) * DAY_MS);
-                    return w.getUTCFullYear() + '-' + String(w.getUTCMonth() + 1).padStart(2, '0') + '-' + String(w.getUTCDate()).padStart(2, '0');
-                };
-
-                const byCh = new Map();      // channel -> Map(bucketKey -> sum)
-                const bucketSet = new Set();
-                progPeak.forEach(p => {
-                    const bk = bucketKeyOf(p);
-                    if (bk == null) return;
-                    bucketSet.add(bk);
-                    if (!byCh.has(p.channel)) byCh.set(p.channel, new Map());
-                    const m = byCh.get(p.channel);
-                    m.set(bk, (m.get(bk) || 0) + p.views);
-                });
-
-                const buckets = Array.from(bucketSet).sort(); // 'YYYY-MM-DD[ HH]' เรียง text ตรงตามเวลาจริง
+                // แกนรวมเดียวกับการ์ด KPI (คำนวณไว้แล้วด้านบน = `trend`)
+                const { byCh, buckets, res, resLabel } = trend;
                 const fmtBucket = bk => {
                     const sp = bk.split(' ');
+                    if (sp[0] === '9999-99-99') return res === 'hour' ? `ไม่ระบุวัน ${sp[1]}:00` : 'ไม่ระบุวัน';
                     const d = (sp[0] || '').split('-');
                     if (d.length !== 3) return bk;
                     return res === 'hour' ? `${d[2]}/${d[1]} ${sp[1]}:00` : `${d[2]}/${d[1]}`;
@@ -6640,6 +6955,11 @@
             document.addEventListener('click', (e) => {
                 if (!e.target.closest('.channel-dropdown-wrap')) {
                     closeChannelDropdown();
+                }
+                // ตัวกรอง "รายการ" (หน้า Live View Stats) — ปิดเมื่อคลิกนอก dropdown
+                if (!e.target.closest('#vsProgDD')) {
+                    const p = document.getElementById('vsProgDDPanel');
+                    if (p && !p.hidden) vsToggleProgDD(false);
                 }
             });
 
