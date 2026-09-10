@@ -61,7 +61,8 @@ function doGet(e) {
 
     // [ADDED] Link Config endpoint — อ่าน Channel_Links และ Broadcast_Overrides
     if (e && e.parameter && (e.parameter.action === 'get_link_config' || e.parameter.action === 'link_config')) {
-      var cfgPayload = getLinkConfig_(SpreadsheetApp.getActiveSpreadsheet());
+      var includeBc = (e.parameter.quick !== '1' && e.parameter.include_broadcasts !== '0');
+      var cfgPayload = getLinkConfig_(SpreadsheetApp.getActiveSpreadsheet(), { includeBroadcasts: includeBc });
       var cfgCb = e.parameter.callback;
       if (cfgCb) {
         return ContentService
@@ -127,7 +128,8 @@ function doPost(e) {
 
     // [ADDED] Link Config endpoints (อ่านและบันทึก Channel_Links และ Broadcast_Overrides)
     if (action === 'get_link_config' || action === 'link_config') {
-      return jsonOut(getLinkConfig_(ss));
+      var includeBc = (req.quick !== true && req.quick !== '1' && req.include_broadcasts !== false && req.include_broadcasts !== '0');
+      return jsonOut(getLinkConfig_(ss, { includeBroadcasts: includeBc }));
     }
     if (action === 'save_link_config') {
       result = saveLinkConfig_(ss, req);
@@ -188,6 +190,13 @@ function doPost(e) {
     // 6.5 append-only sync: เพิ่มเฉพาะรายการที่ยังไม่มีในชีท ต่อท้ายตาราง (record เดิมไม่ถูกแตะ)
     if (action === 'append_programs' || action === 'append_new' || action === 'sync_programs') {
       result = appendPrograms_(ss, req.sheet, req.data);
+      return jsonOut({ ok: true, action: action, result: result });
+    }
+
+    // 6.6 purge: ลบแถวผังรายการที่ "วันเก่ากว่า" cutoff แล้วเลื่อนข้อมูลที่เหลือขึ้นแทนช่องว่าง
+    //     (หัวตารางแถว 1 ไม่ถูกแตะ ; คอลัมน์ลิงก์ D:G เลื่อนตามแถวไปด้วย)
+    if (action === 'purge_before' || action === 'purge_old' || action === 'delete_before') {
+      result = purgeProgramsBefore_(ss, req.sheet, req.cutoff || req.date || req.before, req);
       return jsonOut({ ok: true, action: action, result: result });
     }
 
@@ -270,11 +279,14 @@ function putData(ss, name, data, corner) {
 }
 
 /**
- * เพิ่มเฉพาะรายการที่ยังไม่มีในชีท ต่อท้ายตาราง (append-only)
+ * เพิ่มเฉพาะรายการที่ยังไม่มีในชีท ต่อท้ายตาราง (append-only, forward-only)
  *
  * - เทียบด้วยคีย์ normalize "date|time|title" กับรายการเดิมในคอลัมน์ A:C
  *   (รองรับวันที่ทั้งรูปแบบ DD-MM-YY, DD-MM-YYYY, YYYY-MM-DD และ Date object)
  * - รายการที่มีอยู่แล้วจะถูกข้าม, ของเดิมในชีท "ไม่ถูกแตะ" เลยสักเซลล์
+ * - "forward-only": หาวันที่ล่าสุดที่มีในชีท (maxDate) แล้วเพิ่มเฉพาะรายการที่วัน >= maxDate
+ *   -> รายการที่วัน "เก่ากว่า" วันล่าสุดในชีทจะถูกข้ามเสมอ แม้จะยังไม่มีในชีท (ไม่ backfill ย้อนหลัง)
+ *   -> วันเดียวกับ maxDate ที่ยังไม่มีในชีทยังเพิ่มได้ (เติมช่องว่างของวันล่าสุด)
  * - รายการใหม่ต่อท้ายใต้แถวสุดท้าย เขียนเฉพาะ A:C (ไม่ยุ่งกับคอลัมน์ลิงก์ D:G)
  *
  * req.data = [[วัน, เวลา, รายการ], ...]
@@ -293,29 +305,40 @@ function appendPrograms_(ss, name, data) {
 
   data = (data && data.length) ? data : [];
 
-  // 1. เก็บคีย์ของรายการเดิมทั้งหมด
+  // 1. เก็บคีย์ของรายการเดิมทั้งหมด + หาวันที่ล่าสุดที่มีในชีท
   var seen = {};
   var lastRow = sh.getLastRow();
   var existingCount = 0;
+  var maxDate = '';  // 'YYYY-MM-DD' ของ record ที่ใหม่ที่สุดในชีท ('' = ชีทยังว่าง)
   if (lastRow >= START_ROW) {
     var existing = sh.getRange(START_ROW, 1, lastRow - START_ROW + 1, PROGRAM_COLS).getValues();
     for (var i = 0; i < existing.length; i++) {
       var ek = progKey_(existing[i][0], existing[i][1], existing[i][2]);
       if (ek !== '||') { seen[ek] = true; existingCount++; }
+      var ed = normProgDate_(existing[i][0]);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(ed) && ed > maxDate) maxDate = ed;
     }
   }
 
-  // 2. กรองเฉพาะแถวที่ยังไม่มี (กันซ้ำภายในชุดที่ส่งมาด้วย)
+  // 2. กรอง: เพิ่มเฉพาะแถวที่ (ก) ยังไม่มีในชีท และ (ข) วันไม่เก่ากว่าวันล่าสุดในชีท
   var toAppend = [];
   var skipped = 0;
+  var skippedOld = 0;
   for (var j = 0; j < data.length; j++) {
     var row = data[j] || [];
     var d = row[0] == null ? '' : String(row[0]).trim();
     var t = row[1] == null ? '' : String(row[1]).trim();
     var title = row[2] == null ? '' : String(row[2]).trim();
     if (!d && !t && !title) continue;
+
     var k = progKey_(d, t, title);
     if (seen[k]) { skipped++; continue; }
+
+    if (maxDate) {
+      var dn = normProgDate_(d);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dn) || dn < maxDate) { skippedOld++; continue; }
+    }
+
     seen[k] = true;
     toAppend.push([d, t, title]);
   }
@@ -331,10 +354,89 @@ function appendPrograms_(ss, name, data) {
   return {
     sheet: name,
     created: createdSheet,
+    latest_date_in_sheet: maxDate,
+    skipped_old: skippedOld,
     existing_before: existingCount,
     appended: toAppend.length,
     skipped: skipped,
     total_rows: existingCount + toAppend.length
+  };
+}
+
+/**
+ * ลบแถวผังรายการที่ "วันเก่ากว่า" cutoff (ไม่รวมวันเท่ากับ cutoff)
+ * แล้วเลื่อนข้อมูลที่เหลือขึ้นไปแทนช่องว่างจนชิดหัวตาราง
+ *
+ * - cutoff: string วันที่รูปแบบใดก็ได้ที่ normProgDate_ เข้าใจ
+ *   (DD-MM-YY, DD-MM-YYYY, DD/MM/YYYY, YYYY-MM-DD) -> normalize เป็น 'YYYY-MM-DD'
+ * - เทียบแบบพจนานุกรมบน 'YYYY-MM-DD' : แถวที่ dNorm < cutoffNorm จะถูกลบ
+ * - แถวที่ parse วันไม่ได้ (ว่าง/ผิดรูปแบบ) จะถูก "เก็บไว้" เพื่อความปลอดภัยของข้อมูล
+ * - เลื่อนทั้งแถว (คอลัมน์ A จนถึงคอลัมน์สุดท้ายที่มีข้อมูล) ขึ้น ทำให้ลิงก์ D:G ติดไปกับแถวเดิม
+ * - หัวตารางแถวที่ 1 ไม่ถูกแตะ ; แถวส่วนเกินท้ายตารางถูก deleteRows ทิ้งจริง (ชีทหดตาม)
+ * - req.dry_run === true : รายงานจำนวนที่จะลบโดยไม่แก้ไขชีท
+ */
+function purgeProgramsBefore_(ss, name, cutoff, req) {
+  requireName(name);
+  var sh = ss.getSheetByName(name);
+  if (!sh) throw new Error('sheet not found: ' + name);
+
+  var cutoffNorm = normProgDate_(cutoff);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(cutoffNorm)) {
+    throw new Error('bad cutoff date: ' + cutoff + ' (ต้องเป็น DD-MM-YYYY หรือ YYYY-MM-DD)');
+  }
+
+  var dryRun = !!(req && (req.dry_run === true || req.dry_run === '1' || req.dryRun === true));
+
+  var lastRow = sh.getLastRow();
+  var lastCol = Math.max(sh.getLastColumn(), HEADERS.length);
+  if (lastRow < START_ROW) {
+    return { sheet: name, cutoff: cutoffNorm, removed: 0, kept: 0, total_rows: 0, removed_sample: [], dry_run: dryRun };
+  }
+
+  var numRows = lastRow - START_ROW + 1;
+  var values = sh.getRange(START_ROW, 1, numRows, lastCol).getValues();
+
+  var keep = [];
+  var removed = 0;
+  var removedSample = [];
+  for (var i = 0; i < values.length; i++) {
+    var row = values[i];
+    var dNorm = normProgDate_(row[0]);
+    var isDate = /^\d{4}-\d{2}-\d{2}$/.test(dNorm);
+    if (isDate && dNorm < cutoffNorm) {
+      removed++;
+      if (removedSample.length < 5) {
+        removedSample.push([String(row[0]), String(row[1]), String(row[2])]);
+      }
+      continue;
+    }
+    keep.push(row);
+  }
+
+  if (dryRun || removed === 0) {
+    return {
+      sheet: name, cutoff: cutoffNorm,
+      removed: removed, kept: keep.length, total_rows: keep.length,
+      removed_sample: removedSample, dry_run: dryRun
+    };
+  }
+
+  // เขียนแถวที่เก็บไว้กลับ เริ่มที่แถว 2 (ชิดหัวตาราง) แล้วลบแถวส่วนเกินท้ายตารางทิ้ง
+  if (keep.length > 0) {
+    sh.getRange(START_ROW, 1, keep.length, lastCol).setValues(keep);
+  }
+  var firstEmptyRow = START_ROW + keep.length;
+  var trailing = lastRow - firstEmptyRow + 1;
+  if (trailing > 0) {
+    sh.deleteRows(firstEmptyRow, trailing);
+  }
+  // คงรูปแบบข้อความคอลัมน์ วัน/เวลา กัน Sheets แปลงเป็นวันที่/เวลาอัตโนมัติ
+  sh.getRange('A:B').setNumberFormat('@');
+
+  return {
+    sheet: name, cutoff: cutoffNorm,
+    removed: removed, kept: keep.length, total_rows: keep.length,
+    removed_sample: removedSample, dry_run: false
   };
 }
 
@@ -553,14 +655,30 @@ function upsertViewStats_(ss, req) {
       }
 
       // อัปเดตลิงก์หากได้ลิงก์สดที่ถูกต้องมาใหม่
-      if (isValidUrl_(fbLink) && (!isValidUrl_(targetRow[5]) || targetRow[5] === '-')) {
-        targetRow[5] = fbLink;
+      // Facebook: เฉพาะลิงก์วิดีโอ/ไลฟ์จริงเท่านั้น (ป้องกัน URL หน้าช่อง เช่น /watch/ThaiPBS/)
+      if (isFacebookVideoUrl_(fbLink)) {
+        if (!isFacebookVideoUrl_(targetRow[5])) {
+          targetRow[5] = fbLink;
+          modified = true;
+        }
+      } else if (!isFacebookVideoUrl_(targetRow[5]) && targetRow[5] !== '-') {
+        // หากในชีทเคยบันทึกเป็น URL ช่องที่ไม่ใช่วิดีโอ ให้ล้างเป็น '-'
+        targetRow[5] = '-';
         modified = true;
       }
-      if (isValidUrl_(ytLink) && (!isValidUrl_(targetRow[6]) || targetRow[6] === '-')) {
-        targetRow[6] = ytLink;
+
+      // YouTube: เฉพาะลิงก์วิดีโอ/สตรีมจริงเท่านั้น (ป้องกัน URL หน้าช่อง เช่น /streams)
+      if (isYouTubeVideoUrl_(ytLink)) {
+        if (!isYouTubeVideoUrl_(targetRow[6])) {
+          targetRow[6] = ytLink;
+          modified = true;
+        }
+      } else if (!isYouTubeVideoUrl_(targetRow[6]) && targetRow[6] !== '-') {
+        // หากในชีทเคยบันทึกเป็น URL หน้าช่องที่ไม่ใช่วิดีโอ ให้ล้างเป็น '-'
+        targetRow[6] = '-';
         modified = true;
       }
+
       if (isValidUrl_(ttLink) && (!isValidUrl_(targetRow[7]) || targetRow[7] === '-')) {
         targetRow[7] = ttLink;
         modified = true;
@@ -615,8 +733,8 @@ function upsertViewStats_(ss, req) {
         rTitle,
         rGenre || '-',
         rScheduledTime || '-',
-        isValidUrl_(fbLink) ? fbLink : '-',
-        isValidUrl_(ytLink) ? ytLink : '-',
+        isFacebookVideoUrl_(fbLink) ? fbLink : '-',
+        isYouTubeVideoUrl_(ytLink) ? ytLink : '-',
         isValidUrl_(ttLink) ? ttLink : '-',
         isValidUrl_(xLink) ? xLink : '-',
         fbViews >= 0 ? (rTime || '-') : '-',
@@ -714,6 +832,26 @@ function isValidUrl_(url) {
   return s.indexOf('http://') === 0 || s.indexOf('https://') === 0;
 }
 
+function isFacebookVideoUrl_(url) {
+  if (!isValidUrl_(url)) return false;
+  var s = url.trim();
+  if (/^https?:\/\/(?:www\.|m\.)?fb\.watch\/[A-Za-z0-9_-]+/i.test(s)) return true;
+  if (/[?&]v=\d+/.test(s)) return true;
+  if (/\/videos\/(?:[^\/?#]+\/)?\d+/.test(s)) return true;
+  if (/\/live\/(?:videos\/)?\d+/.test(s)) return true;
+  if (/video\.php.*[?&]v=\d+/.test(s)) return true;
+  return false;
+}
+
+function isYouTubeVideoUrl_(url) {
+  if (!isValidUrl_(url)) return false;
+  var s = url.trim();
+  if (s.indexOf('watch?v=') > -1) return true;
+  if (/^https?:\/\/youtu\.be\/[A-Za-z0-9_-]+/i.test(s)) return true;
+  if (/youtube\.com\/(?:live|embed|v)\/[A-Za-z0-9_-]+/i.test(s)) return true;
+  return false;
+}
+
 /* ============================================================================
  * [ADDED] Live View Stats Dashboard — อ่านชีท 'View Stats' (หน้า Dashboard ที่ 2)
  * เป็นการอ่านอย่างเดียว ไม่แก้ไข/ไม่แตะโค้ดหรือชีทเดิม
@@ -766,8 +904,8 @@ function buildViewStatsPayload_() {
         genre: genre,
         scheduled_time: scheduledTime,
         platforms: {
-          facebook: platformStat_(r[5], r[9], r[10]),
-          youtube: platformStat_(r[6], r[11], r[12]),
+          facebook: platformStat_(isFacebookVideoUrl_(r[5]) ? r[5] : '-', r[9], r[10]),
+          youtube: platformStat_(isYouTubeVideoUrl_(r[6]) ? r[6] : '-', r[11], r[12]),
           tiktok: platformStat_(r[7], r[13], r[14]),
           x: platformStat_(r[8], r[15], r[16])
         }
@@ -824,7 +962,53 @@ function isScheduleSheetName_(sName) {
   return true;
 }
 
-function getLinkConfig_(ss) {
+function getChannelBroadcastsCached_(ss) {
+  try {
+    var cache = CacheService.getScriptCache();
+    var cached = cache.get('channel_broadcasts_v1');
+    if (cached) {
+      return JSON.parse(cached);
+    }
+  } catch (e) {}
+
+  var channelBroadcasts = {};
+  var allSheets = ss.getSheets();
+  allSheets.forEach(function (sh) {
+    var sName = sh.getName();
+    if (!isScheduleSheetName_(sName)) return;
+    var lastRow = sh.getLastRow();
+    if (lastRow < START_ROW) return;
+    var titlesCol = sh.getRange(START_ROW, 3, lastRow - START_ROW + 1, 1).getValues();
+    var titles = [];
+    var seenTitles = {};
+    for (var i = 0; i < titlesCol.length; i++) {
+      var t = String(titlesCol[i][0] || '').trim();
+      if (!t || t === '-' || t.toLowerCase() === 'n/a' || t === 'รายการ' || t.indexOf('http') === 0) continue;
+      if (!seenTitles[t]) {
+        seenTitles[t] = true;
+        titles.push(t);
+      }
+    }
+    if (titles.length > 0) {
+      channelBroadcasts[sName] = titles;
+    }
+  });
+
+  try {
+    var cache = CacheService.getScriptCache();
+    var str = JSON.stringify(channelBroadcasts);
+    if (str.length < 95000) {
+      cache.put('channel_broadcasts_v1', str, 1800); // Cache for 30 mins
+    }
+  } catch (e) {}
+
+  return channelBroadcasts;
+}
+
+function getLinkConfig_(ss, options) {
+  options = options || {};
+  var includeBroadcasts = options.includeBroadcasts !== false;
+
   try {
     var channelLinks = {};
     var chSheet = ss.getSheetByName(CHANNEL_LINKS_SHEET);
@@ -873,99 +1057,290 @@ function getLinkConfig_(ss) {
       });
     }
 
-    return {
+    var res = {
       ok: true,
       channel_links: channelLinks,
       broadcast_overrides: broadcastOverrides
     };
+
+    if (includeBroadcasts) {
+      res.channel_broadcasts = getChannelBroadcastsCached_(ss);
+    }
+
+    return res;
   } catch (err) {
     return { ok: false, error: String(err && err.stack ? err.stack : err) };
   }
 }
 
-function parseUrlList_(val) {
-  if (!val) return [];
-  var s = String(val).trim();
-  if (!s || s === '-' || s.toUpperCase() === 'N/A') return [];
-  var parts = s.split(/[\r\n,]+/);
+function normalizeUrlForDedupe_(url) {
+  if (!url) return '';
+  var s = String(url).trim();
+  return s.toLowerCase().replace(/^https?:\/\//, '').replace(/\/+$/, '');
+}
+
+function dedupeUrls_(urlList) {
+  if (!urlList) return [];
+  var arr = Array.isArray(urlList) ? urlList : String(urlList).split(/[\r\n,]+/);
   var out = [];
   var seen = {};
-  for (var i = 0; i < parts.length; i++) {
-    var u = parts[i].trim();
-    if (u && !seen[u]) {
-      seen[u] = true;
+  for (var i = 0; i < arr.length; i++) {
+    var u = String(arr[i] || '').trim();
+    if (!u || u === '-' || u.toUpperCase() === 'N/A') continue;
+    var norm = normalizeUrlForDedupe_(u);
+    if (!seen[norm]) {
+      seen[norm] = true;
       out.push(u);
     }
   }
   return out;
 }
 
+function parseUrlList_(val) {
+  return dedupeUrls_(val);
+}
+
+function mergeUrlLists3WayServer_(baseList, sheetList, incomingList) {
+  var base = dedupeUrls_(baseList);
+  var sheet = dedupeUrls_(sheetList);
+  var incoming = dedupeUrls_(incomingList);
+
+  var baseMap = {};
+  for (var i = 0; i < base.length; i++) baseMap[normalizeUrlForDedupe_(base[i])] = true;
+
+  var incomingMap = {};
+  for (var i = 0; i < incoming.length; i++) incomingMap[normalizeUrlForDedupe_(incoming[i])] = true;
+
+  var userAdded = [];
+  for (var i = 0; i < incoming.length; i++) {
+    if (!baseMap[normalizeUrlForDedupe_(incoming[i])]) {
+      userAdded.push(incoming[i]);
+    }
+  }
+
+  var userDeletedMap = {};
+  for (var i = 0; i < base.length; i++) {
+    if (!incomingMap[normalizeUrlForDedupe_(base[i])]) {
+      userDeletedMap[normalizeUrlForDedupe_(base[i])] = true;
+    }
+  }
+
+  var result = [];
+  var seen = {};
+
+  // 1. Keep URLs currently in sheet (unless explicitly deleted by this request)
+  for (var i = 0; i < sheet.length; i++) {
+    var norm = normalizeUrlForDedupe_(sheet[i]);
+    if (!userDeletedMap[norm]) {
+      if (!seen[norm]) {
+        seen[norm] = true;
+        result.push(sheet[i]);
+      }
+    }
+  }
+
+  // 2. Add URLs added by this request
+  for (var i = 0; i < userAdded.length; i++) {
+    var norm = normalizeUrlForDedupe_(userAdded[i]);
+    if (!seen[norm]) {
+      seen[norm] = true;
+      result.push(userAdded[i]);
+    }
+  }
+
+  return result;
+}
+
+function areOverridesEqualServer_(bo1, bo2) {
+  if (!bo1 && !bo2) return true;
+  if (!bo1 || !bo2) return false;
+  var plats = ['facebook', 'youtube', 'tiktok', 'x'];
+  for (var i = 0; i < plats.length; i++) {
+    var p = plats[i];
+    var l1 = dedupeUrls_(bo1[p]).map(normalizeUrlForDedupe_).sort().join('\n');
+    var l2 = dedupeUrls_(bo2[p]).map(normalizeUrlForDedupe_).sort().join('\n');
+    if (l1 !== l2) return false;
+  }
+  return true;
+}
+
 function saveLinkConfig_(ss, req) {
-  var nowStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Bangkok', 'yyyy-MM-dd HH:mm:ss');
-  var updatedChannels = 0;
-  var updatedOverrides = 0;
-
-  // 1. Channel Links
-  if (req.channel_links && typeof req.channel_links === 'object') {
-    var chSheet = ss.getSheetByName(CHANNEL_LINKS_SHEET);
-    if (!chSheet) {
-      chSheet = ss.insertSheet(CHANNEL_LINKS_SHEET);
-      chSheet.getRange(1, 1, 1, CHANNEL_LINKS_HEADERS.length).setValues([CHANNEL_LINKS_HEADERS]);
-      chSheet.setFrozenRows(1);
-    }
-    var chRows = [];
-    var chKeys = Object.keys(req.channel_links).sort();
-    chKeys.forEach(function(ch) {
-      var item = req.channel_links[ch] || {};
-      var fb = Array.isArray(item.facebook) ? item.facebook.join('\n') : String(item.facebook || '').trim();
-      var yt = Array.isArray(item.youtube) ? item.youtube.join('\n') : String(item.youtube || '').trim();
-      var tt = Array.isArray(item.tiktok) ? item.tiktok.join('\n') : String(item.tiktok || '').trim();
-      var x = Array.isArray(item.x) ? item.x.join('\n') : String(item.x || '').trim();
-      chRows.push([ch, fb, yt, tt, x, nowStr]);
-    });
-
-    if (chSheet.getLastRow() > 1) {
-      chSheet.getRange(2, 1, chSheet.getLastRow() - 1, chSheet.getLastColumn()).clearContent();
-    }
-    if (chRows.length > 0) {
-      chSheet.getRange(2, 1, chRows.length, 6).setNumberFormat('@').setValues(chRows);
-    }
-    updatedChannels = chRows.length;
+  var lock = LockService.getScriptLock();
+  var hasLock = lock.tryLock(30000);
+  if (!hasLock) {
+    return {
+      success: false,
+      ok: false,
+      error: 'ระบบกำลังประมวลผลคำขอบันทึกอื่น กรุณาลองใหม่อีกครั้งในครู่เดียว'
+    };
   }
 
-  // 2. Broadcast Overrides
-  if (req.broadcast_overrides && Array.isArray(req.broadcast_overrides)) {
-    var boSheet = ss.getSheetByName(BROADCAST_OVERRIDES_SHEET);
-    if (!boSheet) {
-      boSheet = ss.insertSheet(BROADCAST_OVERRIDES_SHEET);
-      boSheet.getRange(1, 1, 1, BROADCAST_OVERRIDES_HEADERS.length).setValues([BROADCAST_OVERRIDES_HEADERS]);
-      boSheet.setFrozenRows(1);
-    }
-    var boRows = [];
-    req.broadcast_overrides.forEach(function(item) {
-      var ch = String(item.channel || '').trim();
-      var title = String(item.title || '').trim();
-      if (!ch || !title) return;
-      var fb = Array.isArray(item.facebook) ? item.facebook.join('\n') : String(item.facebook || '').trim();
-      var yt = Array.isArray(item.youtube) ? item.youtube.join('\n') : String(item.youtube || '').trim();
-      var tt = Array.isArray(item.tiktok) ? item.tiktok.join('\n') : String(item.tiktok || '').trim();
-      var x = Array.isArray(item.x) ? item.x.join('\n') : String(item.x || '').trim();
-      boRows.push([ch, title, fb, yt, tt, x, nowStr]);
-    });
+  try {
+    var nowStr = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Bangkok', 'yyyy-MM-dd HH:mm:ss');
+    var updatedChannels = 0;
+    var updatedOverrides = 0;
 
-    if (boSheet.getLastRow() > 1) {
-      boSheet.getRange(2, 1, boSheet.getLastRow() - 1, boSheet.getLastColumn()).clearContent();
+    // Read current sheet state while holding the lock (captures changes saved mere milliseconds ago)
+    var currentSheetConfig = getLinkConfig_(ss, { includeBroadcasts: false });
+    var sheetChMap = currentSheetConfig.channel_links || {};
+    var sheetBoList = currentSheetConfig.broadcast_overrides || [];
+
+    // 1. Channel Links
+    if (req.channel_links && typeof req.channel_links === 'object') {
+      var chSheet = ss.getSheetByName(CHANNEL_LINKS_SHEET);
+      if (!chSheet) {
+        chSheet = ss.insertSheet(CHANNEL_LINKS_SHEET);
+        chSheet.getRange(1, 1, 1, CHANNEL_LINKS_HEADERS.length).setValues([CHANNEL_LINKS_HEADERS]);
+        chSheet.setFrozenRows(1);
+      }
+
+      var baseChMap = (req.base_channel_links && typeof req.base_channel_links === 'object') ? req.base_channel_links : {};
+      var allChannelNames = {};
+      Object.keys(req.channel_links).forEach(function(k) { allChannelNames[k] = true; });
+      Object.keys(sheetChMap).forEach(function(k) { allChannelNames[k] = true; });
+
+      var chRows = [];
+      var chKeys = Object.keys(allChannelNames).sort();
+      chKeys.forEach(function(ch) {
+        var baseItem = baseChMap[ch] || {};
+        var sheetItem = sheetChMap[ch] || {};
+        var incItem = req.channel_links[ch] || sheetItem;
+
+        var fb = mergeUrlLists3WayServer_(baseItem.facebook, sheetItem.facebook, incItem.facebook).join('\n');
+        var yt = mergeUrlLists3WayServer_(baseItem.youtube, sheetItem.youtube, incItem.youtube).join('\n');
+        var tt = mergeUrlLists3WayServer_(baseItem.tiktok, sheetItem.tiktok, incItem.tiktok).join('\n');
+        var x = mergeUrlLists3WayServer_(baseItem.x, sheetItem.x, incItem.x).join('\n');
+        chRows.push([ch, fb, yt, tt, x, nowStr]);
+      });
+
+      if (chSheet.getLastRow() > 1) {
+        chSheet.getRange(2, 1, chSheet.getLastRow() - 1, chSheet.getLastColumn()).clearContent();
+      }
+      if (chRows.length > 0) {
+        chSheet.getRange(2, 1, chRows.length, 6).setNumberFormat('@').setValues(chRows);
+      }
+      updatedChannels = chRows.length;
     }
-    if (boRows.length > 0) {
-      boSheet.getRange(2, 1, boRows.length, 7).setNumberFormat('@').setValues(boRows);
+
+    // 2. Broadcast Overrides
+    if (req.broadcast_overrides && Array.isArray(req.broadcast_overrides)) {
+      var boSheet = ss.getSheetByName(BROADCAST_OVERRIDES_SHEET);
+      if (!boSheet) {
+        boSheet = ss.insertSheet(BROADCAST_OVERRIDES_SHEET);
+        boSheet.getRange(1, 1, 1, BROADCAST_OVERRIDES_HEADERS.length).setValues([BROADCAST_OVERRIDES_HEADERS]);
+        boSheet.setFrozenRows(1);
+      }
+
+      var getBoKey = function(b) {
+        return String(b.channel || '').trim() + ':::' + String(b.title || '').trim().toLowerCase();
+      };
+
+      var baseBoMap = {};
+      if (Array.isArray(req.base_broadcast_overrides)) {
+        req.base_broadcast_overrides.forEach(function(b) {
+          var k = getBoKey(b);
+          if (k !== ':::') baseBoMap[k] = b;
+        });
+      }
+
+      var sheetBoMap = {};
+      sheetBoList.forEach(function(b) {
+        var k = getBoKey(b);
+        if (k !== ':::') sheetBoMap[k] = b;
+      });
+
+      var incBoMap = {};
+      req.broadcast_overrides.forEach(function(b) {
+        var k = getBoKey(b);
+        if (k !== ':::') incBoMap[k] = b;
+      });
+
+      // Overrides explicitly deleted by this incoming request
+      var userDeletedOverrides = {};
+      Object.keys(baseBoMap).forEach(function(k) {
+        if (!incBoMap[k]) userDeletedOverrides[k] = true;
+      });
+
+      var boRows = [];
+      var handledKeys = {};
+
+      // Preserve existing sheet overrides (unless explicitly deleted by this request)
+      Object.keys(sheetBoMap).forEach(function(k) {
+        if (userDeletedOverrides[k]) return;
+        var sBo = sheetBoMap[k];
+        if (!incBoMap[k]) {
+          boRows.push([
+            sBo.channel,
+            sBo.title,
+            dedupeUrls_(sBo.facebook).join('\n'),
+            dedupeUrls_(sBo.youtube).join('\n'),
+            dedupeUrls_(sBo.tiktok).join('\n'),
+            dedupeUrls_(sBo.x).join('\n'),
+            nowStr
+          ]);
+        } else {
+          var bBo = baseBoMap[k] || {};
+          var iBo = incBoMap[k];
+          var fb = mergeUrlLists3WayServer_(bBo.facebook, sBo.facebook, iBo.facebook).join('\n');
+          var yt = mergeUrlLists3WayServer_(bBo.youtube, sBo.youtube, iBo.youtube).join('\n');
+          var tt = mergeUrlLists3WayServer_(bBo.tiktok, sBo.tiktok, iBo.tiktok).join('\n');
+          var x = mergeUrlLists3WayServer_(bBo.x, sBo.x, iBo.x).join('\n');
+          if (fb || yt || tt || x) {
+            boRows.push([iBo.channel || sBo.channel, iBo.title || sBo.title, fb, yt, tt, x, nowStr]);
+          }
+        }
+        handledKeys[k] = true;
+      });
+
+      // Newly added overrides by this request
+      Object.keys(incBoMap).forEach(function(k) {
+        if (!handledKeys[k]) {
+          var iBo = incBoMap[k];
+          var bBo = baseBoMap[k];
+          // If this override was in base, but missing from sheet, another user deleted it from the sheet!
+          // If incoming request made no new edits compared to base, respect the server deletion and DO NOT resurrect!
+          if (bBo && areOverridesEqualServer_(bBo, iBo)) {
+            return;
+          }
+          var fb = dedupeUrls_(iBo.facebook).join('\n');
+          var yt = dedupeUrls_(iBo.youtube).join('\n');
+          var tt = dedupeUrls_(iBo.tiktok).join('\n');
+          var x = dedupeUrls_(iBo.x).join('\n');
+          if (fb || yt || tt || x) {
+            boRows.push([
+              iBo.channel,
+              iBo.title,
+              fb,
+              yt,
+              tt,
+              x,
+              nowStr
+            ]);
+          }
+          handledKeys[k] = true;
+        }
+      });
+
+      if (boSheet.getLastRow() > 1) {
+        boSheet.getRange(2, 1, boSheet.getLastRow() - 1, boSheet.getLastColumn()).clearContent();
+      }
+      if (boRows.length > 0) {
+        boSheet.getRange(2, 1, boRows.length, 7).setNumberFormat('@').setValues(boRows);
+      }
+      updatedOverrides = boRows.length;
     }
-    updatedOverrides = boRows.length;
+
+    var finalConfig = getLinkConfig_(ss, { includeBroadcasts: false });
+    return {
+      success: true,
+      ok: true,
+      channel_links: finalConfig.channel_links || {},
+      broadcast_overrides: finalConfig.broadcast_overrides || [],
+      channel_links_count: updatedChannels,
+      broadcast_overrides_count: updatedOverrides,
+      timestamp: nowStr
+    };
+  } finally {
+    lock.releaseLock();
   }
-
-  return {
-    success: true,
-    channel_links_count: updatedChannels,
-    broadcast_overrides_count: updatedOverrides,
-    timestamp: nowStr
-  };
 }

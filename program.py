@@ -8,9 +8,18 @@
     2. extract pgDate (DD-MM-YY), pgBeginTime, pgTitle ; ใช้ channelName เป็นชื่อชีท
     3. group ตามช่อง, เรียงตามวัน -> เวลา
     4. ต่อชีท: create(sheet) แล้ว append_programs(sheet, data)
-       -- sync แบบ append-only: Apps Script เทียบกับรายการเดิมในชีท
-          แล้วเพิ่ม "เฉพาะรายการใหม่" ต่อท้าย (record เดิมไม่ถูกแตะ)
+       -- sync แบบ append-only + forward-only: Apps Script เทียบกับรายการเดิมในชีท
+          แล้วเพิ่ม "เฉพาะรายการใหม่ที่วันไม่เก่ากว่าวันล่าสุดในชีท" ต่อท้าย
+          (record เดิมไม่ถูกแตะ ; record ที่วันเก่ากว่าวันล่าสุดในชีทจะถูกข้าม แม้ยังไม่มีในชีท)
     5. เขียน configuration/channels.txt = ชื่อช่องที่ไม่ซ้ำ
+
+โหมดลบข้อมูลเก่า (--purge)
+    python program.py --purge 1-9-2026 [--sheet "ชื่อชีท" ...] [--dry-run]
+        -- ลบแถวผังรายการที่ "วันเก่ากว่า" วันที่ที่ระบุ (ไม่รวมวันเท่ากับวันที่นั้น)
+           ออกจากชีทเป้าหมายบน Google Sheet แล้วเลื่อนข้อมูลที่เหลือขึ้นไปชิดหัวตาราง
+           (หัวตารางแถวที่ 1 ไม่ถูกแตะ ; คอลัมน์ลิงก์ D:G เลื่อนตามแถวไปด้วย)
+        -- ไม่ระบุ --sheet : ทำกับทุกชีทที่อยู่ใน configuration/channels.txt
+        -- --dry-run : แสดงจำนวนแถวที่จะลบโดยไม่แก้ไขชีทจริง
 
 ไฟล์ประกอบ (path อ้างอิงจากโฟลเดอร์ที่ไฟล์ program.py อยู่ ไม่ผูกกับ cwd):
     configuration/map.txt       -- input : map ชื่อช่องจาก API -> ชื่อชีท
@@ -20,6 +29,7 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import sys
@@ -279,10 +289,12 @@ def push_to_sheets(sheets: dict[str, list[list[str]]]) -> None:
         res = call_apps_script("append_programs", sheet=channel, data=rows)
         appended = res.get("appended", 0)
         skipped = res.get("skipped", 0)
+        skipped_old = res.get("skipped_old", 0)
         grand_appended += appended
         grand_skipped += skipped
+        old_note = f", ข้ามที่เก่ากว่าวันล่าสุดในชีท {skipped_old} รายการ" if skipped_old else ""
         print(
-            f"    - เพิ่มใหม่ {appended} รายการ, มีอยู่แล้ว {skipped} รายการ"
+            f"    - เพิ่มใหม่ {appended} รายการ, มีอยู่แล้ว {skipped} รายการ{old_note}"
             f" (รวมในชีท {res.get('total_rows', '?')})"
         )
         time.sleep(SHEET_PAUSE)  # เว้นจังหวะ ลดโอกาส Apps Script ตอบหน้า error ชั่วคราว
@@ -303,15 +315,136 @@ def write_channels_file(sheets: dict[str, list[list[str]]]) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# โหมดลบข้อมูลเก่า (--purge)
+# --------------------------------------------------------------------------- #
+
+def _normalize_purge_date(raw: str) -> str:
+    """'1-9-2026' / '01-09-26' / '2026-09-01' -> 'YYYY-MM-DD' (ตรงกับที่ Apps Script ใช้เทียบ)
+
+    ใช้ _date_sort_key ตัวเดียวกับที่ใช้เรียงผัง (คาดหวังรูปแบบ DD-MM-YYYY เป็นหลัก)
+    """
+    year, month, day = _date_sort_key(raw)
+    if (year, month, day) == (9999, 99, 99) or not (1 <= month <= 12 and 1 <= day <= 31):
+        raise SystemExit(
+            f"!! รูปแบบวันที่ไม่ถูกต้อง: {raw!r} - ใช้ DD-MM-YYYY เช่น 1-9-2026"
+        )
+    return f"{year:04d}-{month:02d}-{day:02d}"
+
+
+def _resolve_target_sheets(sheet_args: list[str]) -> list[str]:
+    """รวมชื่อชีทจาก --sheet (ใส่ซ้ำได้ / คั่นด้วย ,) ; ถ้าไม่ระบุ อ่านจาก channels.txt"""
+    names: list[str] = []
+    for arg in sheet_args:
+        names.extend(part.strip() for part in arg.split(",") if part.strip())
+    if names:
+        # ลบตัวซ้ำแต่คงลำดับ
+        seen: set[str] = set()
+        return [n for n in names if not (n in seen or seen.add(n))]
+
+    if os.path.exists(CHANNELS_FILE):
+        with open(CHANNELS_FILE, encoding="utf-8") as fh:
+            names = [line.strip() for line in fh if line.strip()]
+    if not names:
+        raise SystemExit(
+            "!! ไม่พบรายชื่อชีทเป้าหมาย - ระบุ --sheet \"ชื่อชีท\" "
+            f"หรือรัน scrape สักครั้งเพื่อสร้าง {CHANNELS_FILE_LABEL}"
+        )
+    return names
+
+
+def purge_old_records(cutoff_raw: str, sheet_names: list[str], dry_run: bool = False) -> int:
+    """ลบแถวที่เก่ากว่า cutoff จากแต่ละชีท ผ่าน Apps Script action=purge_before"""
+    cutoff = _normalize_purge_date(cutoff_raw)
+    mode = " [DRY RUN - ไม่แก้ไขชีทจริง]" if dry_run else ""
+    print(
+        f"[purge] ลบรายการที่วันเก่ากว่า {cutoff} (คงวันที่ {cutoff} ไว้) "
+        f"จาก {len(sheet_names)} ชีท{mode}"
+    )
+
+    total = len(sheet_names)
+    grand_removed = 0
+    failed: list[str] = []
+    for index, name in enumerate(sheet_names, start=1):
+        try:
+            res = call_apps_script(
+                "purge_before", sheet=name, cutoff=cutoff, dry_run=dry_run
+            )
+        except RuntimeError as exc:
+            print(f"[purge {index}/{total}] {name}: ผิดพลาด - {exc}")
+            failed.append(name)
+            continue
+
+        removed = res.get("removed", 0)
+        kept = res.get("kept", 0)
+        grand_removed += removed
+        verb = "จะลบ" if dry_run else "ลบแล้ว"
+        print(f"[purge {index}/{total}] {name}: {verb} {removed} แถว, เหลือ {kept} แถว")
+        for sample in res.get("removed_sample", [])[:3]:
+            cols = list(sample) + ["", "", ""]
+            print(f"        - {cols[0]} {cols[1]} {cols[2]}")
+        time.sleep(SHEET_PAUSE)
+
+    verb = "ที่จะลบ" if dry_run else "ที่ลบไป"
+    print(f"[purge] รวมรายการ{verb}ทั้งหมด {grand_removed} แถว")
+    if failed:
+        print(f"[purge] ชีทที่ทำไม่สำเร็จ {len(failed)} ชีท: {', '.join(failed)}")
+        return 1
+    return 0
+
+
+# --------------------------------------------------------------------------- #
 # main
 # --------------------------------------------------------------------------- #
 
-def main() -> int:
+def _build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="program.py",
+        description=(
+            "ดึงผังรายการทีวีจาก NBTC แล้ว sync ขึ้น Google Sheet (ไม่ใส่อาร์กิวเมนต์); "
+            "หรือใช้ --purge เพื่อลบรายการที่เก่ากว่าวันที่ที่ระบุออกจากชีท"
+        ),
+    )
+    parser.add_argument(
+        "--purge",
+        metavar="DATE",
+        help=(
+            "โหมดลบ: ลบแถวที่วันเก่ากว่า DATE (รูปแบบ DD-MM-YYYY เช่น 1-9-2026) "
+            "ออกจากชีทเป้าหมาย แล้วเลื่อนข้อมูลที่เหลือขึ้นชิดหัวตาราง"
+        ),
+    )
+    parser.add_argument(
+        "--sheet",
+        action="append",
+        default=[],
+        metavar="NAME",
+        help=(
+            "ระบุชีทเป้าหมายสำหรับ --purge (ใส่ซ้ำได้ หรือคั่นด้วย ,) ; "
+            f"ถ้าไม่ระบุจะใช้ทุกชีทใน {CHANNELS_FILE_LABEL}"
+        ),
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="ใช้กับ --purge: แสดงจำนวนแถวที่จะลบโดยไม่แก้ไขชีทจริง",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = _build_arg_parser().parse_args(argv)
+
     if not APPS_SCRIPT_URL.lower().startswith("http"):
         print("!! ยังไม่ได้ตั้งค่า APPS_SCRIPT_URL")
         print("   - ใส่ในไฟล์ .env ที่โฟลเดอร์นี้:  APPS_SCRIPT_URL=https://script.google.com/macros/s/XXXX/exec")
         print('   - หรือ set env var:  $env:APPS_SCRIPT_URL = "https://script.google.com/macros/s/XXXX/exec"')
         return 1
+
+    if args.purge:
+        sheet_names = _resolve_target_sheets(args.sheet)
+        return purge_old_records(args.purge, sheet_names, dry_run=args.dry_run)
+
+    if args.sheet:
+        print("[warn] --sheet ใช้ได้เฉพาะกับโหมด --purge - ข้ามค่านี้ในโหมด scrape")
 
     data = fetch_program_data()
     records = extract_records(data)

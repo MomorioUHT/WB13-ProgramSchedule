@@ -1831,12 +1831,12 @@
         .vs-charts-col .vs-chart-canvas-wrap { height: 340px; }
 
         .vs-chart-title {
-            font-size: 15.5px;
-            font-weight: 800;
-            color: var(--text-primary);
+            font-size: 12.5px;
+            font-weight: 700;
+            color: var(--text-secondary);
             text-transform: uppercase;
-            letter-spacing: 0.03em;
-            margin-bottom: 12px;
+            letter-spacing: 0.04em;
+            margin-bottom: 10px;
         }
 
         .vs-chart-head {
@@ -1894,9 +1894,299 @@
             width: 100%;
         }
 
-        @media (max-width: 640px) {
-            .page-nav { width: 100%; }
-            .page-nav-btn { flex: 1; justify-content: center; }
+        /* ===================== Link Configuration Modal ===================== */
+        .lc-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(4, 7, 18, 0.85);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            animation: lcModalFadeIn 0.2s ease-out;
+        }
+        @keyframes lcModalFadeIn {
+            from { opacity: 0; transform: scale(0.98); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .lc-modal {
+            background: #0f172a;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 1160px;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+            overflow: hidden;
+        }
+        .lc-modal-header {
+            padding: 18px 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.02);
+        }
+        .lc-modal-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: #f8fafc;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .lc-modal-subtitle {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 4px;
+        }
+        .lc-close-btn {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 6px 10px;
+            border-radius: 8px;
+            transition: var(--transition);
+        }
+        .lc-close-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+        .lc-tabs {
+            display: flex;
+            gap: 8px;
+            padding: 10px 24px;
+            background: rgba(0, 0, 0, 0.25);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .lc-tab-btn {
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            border-radius: 8px;
+            background: transparent;
+            border: 1px solid transparent;
+            color: #94a3b8;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+        .lc-tab-btn.active {
+            background: rgba(99, 102, 241, 0.18);
+            border-color: rgba(99, 102, 241, 0.4);
+            color: #818cf8;
+        }
+        .lc-modal-body {
+            padding: 18px 24px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .lc-toolbar {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        .lc-select, .lc-input {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 8px;
+            padding: 8px 12px;
+            color: #f8fafc;
+            font-size: 12.5px;
+            font-family: inherit;
+            outline: none;
+        }
+        .lc-select:focus, .lc-input:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        }
+        .lc-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 12.5px;
+        }
+        .lc-table th {
+            background: #111827;
+            color: #94a3b8;
+            font-weight: 600;
+            text-align: left;
+            padding: 10px 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+        .lc-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            vertical-align: top;
+        }
+        .lc-table tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        .lc-table .lc-input {
+            width: 100%;
+            font-size: 11.5px;
+            padding: 6px 8px;
+        }
+        .lc-table textarea.lc-input {
+            resize: vertical;
+            min-height: 52px;
+            font-family: monospace;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+        .lc-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            background: rgba(99, 102, 241, 0.15);
+            color: #a5b4fc;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            white-space: nowrap;
+        }
+        .lc-btn-del {
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            color: #f87171;
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: var(--transition);
+        }
+        .lc-btn-del:hover {
+            background: rgba(239, 68, 68, 0.25);
+            color: #ffffff;
+        }
+        .lc-modal-footer {
+            padding: 14px 24px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.2);
+        }
+        .lc-status-text {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        /* ===================== Channel Multi-Link UX Enhancements ===================== */
+        .lc-info-banner {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.08));
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 12px;
+            padding: 14px 18px;
+            margin-bottom: 16px;
+            font-size: 12.5px;
+            line-height: 1.55;
+            color: #cbd5e1;
+        }
+        .lc-info-banner code {
+            background: rgba(0, 0, 0, 0.35);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #a5b4fc;
+            font-family: monospace;
+            font-size: 11.5px;
+        }
+        .lc-highlight-badge {
+            display: inline-block;
+            background: rgba(99, 102, 241, 0.2);
+            border: 1px solid rgba(99, 102, 241, 0.45);
+            color: #c7d2fe;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 1px 6px;
+            border-radius: 10px;
+            margin-left: 4px;
+            vertical-align: middle;
+        }
+        .lc-multi-url-box {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            min-width: 220px;
+        }
+        .lc-url-row {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .lc-url-idx {
+            font-size: 10px;
+            color: #64748b;
+            font-weight: 700;
+            min-width: 14px;
+            text-align: right;
+            user-select: none;
+        }
+        .lc-btn-add-url {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            background: rgba(99, 102, 241, 0.09);
+            border: 1px dashed rgba(99, 102, 241, 0.45);
+            color: #a5b4fc;
+            padding: 4px 9px;
+            border-radius: 6px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: var(--transition);
+            margin-top: 3px;
+            font-weight: 600;
+            width: fit-content;
+        }
+        .lc-btn-add-url:hover {
+            background: rgba(99, 102, 241, 0.22);
+            border-color: #818cf8;
+            color: #ffffff;
+        }
+        .lc-btn-del-url {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            padding: 3px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1;
+            transition: var(--transition);
+        }
+        .lc-btn-del-url:hover {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+        }
+        .lc-channel-link-count {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.08);
+            color: #94a3b8;
+            margin-top: 5px;
+        }
+        .lc-channel-link-count.multi {
+            background: rgba(99, 102, 241, 0.25);
+            color: #a5b4fc;
+            border: 1px solid rgba(99, 102, 241, 0.45);
         }
     </style>
 </head>
@@ -2169,6 +2459,7 @@
                 </div>
                 <div class="header-actions">
                     <span class="badge-live" id="vsSyncBadge"><span class="dot-pulse"></span> Connected to Google Sheet</span>
+                    <button onclick="openLinkConfigModal()" class="btn btn-secondary" id="vsLinkConfigBtn" style="background: rgba(99, 102, 241, 0.16); border: 1px solid rgba(99, 102, 241, 0.4); color: #a5b4fc; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 9px 15px; border-radius: var(--radius-sm); transition: var(--transition);">⚙️ ตั้งค่าลิงก์ช่อง & รายการ</button>
                     <button onclick="fetchViewStats()" class="btn btn-primary" id="vsRefreshBtn">🔄 Sync from Sheet</button>
                 </div>
             </header>
@@ -2250,14 +2541,14 @@
                 <div class="vs-charts-row">
                     <div class="vs-chart-box bar">
                         <div class="vs-chart-head">
-                            <span class="vs-chart-title" id="vsTopProgramsTitle">ยอดวิวสูงสุดรายรายการ (Top 30)</span>
+                            <span class="vs-chart-title" id="vsTopProgramsTitle">ยอดวิวสูงสุดรายรายการ (Top 15)</span>
                             <label class="vs-topn-wrap">แสดง
                                 <select id="vsTopN" class="vs-topn-select" onchange="vsRender()">
                                     <option value="5">Top 5</option>
                                     <option value="10">Top 10</option>
-                                    <option value="15">Top 15</option>
+                                    <option value="15" selected>Top 15</option>
                                     <option value="20">Top 20</option>
-                                    <option value="30" selected>Top 30</option>
+                                    <option value="30">Top 30</option>
                                     <option value="50">Top 50</option>
                                     <option value="all">ทั้งหมด</option>
                                 </select>
@@ -2485,6 +2776,114 @@
                 </div>
                 <div class="pres-footer-right">
                     <span id="presFooterSlideIndicator">Thai News Analytics &bull; 16:9 Presentation</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================== MODAL: Channel & Broadcast Link Configuration ===================== -->
+    <div id="linkConfigModal" class="lc-modal-overlay" style="display: none;" onclick="if(event.target===this)closeLinkConfigModal()">
+        <div class="lc-modal">
+            <div class="lc-modal-header">
+                <div>
+                    <div class="lc-modal-title">⚙️ ตั้งค่าลิงก์ช่อง & รายการเฉพาะ (Link Configuration)</div>
+                    <div class="lc-modal-subtitle">กำหนดลิงก์หลักประจำช่อง (รองรับหลายลิงก์) หรือตั้งค่าลิงก์เฉพาะรายการยอดนิยม (เช่น โหนกระแส, เรื่องเล่าเช้านี้)</div>
+                </div>
+                <button class="lc-close-btn" onclick="closeLinkConfigModal()">&times;</button>
+            </div>
+
+            <div class="lc-tabs">
+                <button class="lc-tab-btn active" id="lcTabBroadcasts" onclick="switchLinkConfigTab('broadcasts')">📺 ลิงก์เฉพาะรายการ (Broadcast Overrides)</button>
+                <button class="lc-tab-btn" id="lcTabChannels" onclick="switchLinkConfigTab('channels')">🏢 ลิงก์หลักประจำช่อง (Channel Multi-Links)</button>
+            </div>
+
+            <!-- Tab 1: Broadcast Overrides -->
+            <div id="lcBodyBroadcasts" class="lc-modal-body">
+                <div class="lc-toolbar">
+                    <select id="lcChannelFilter" class="lc-select" onchange="renderBroadcastOverrides()">
+                        <option value="">ทุกช่อง (All Channels)</option>
+                    </select>
+                    <input type="text" id="lcSearchInput" class="lc-input" style="flex: 1; min-width: 200px;" placeholder="🔍 ค้นหาชื่อรายการ..." oninput="renderBroadcastOverrides()">
+                    <span id="lcBroadcastCountBadge" style="font-size: 12px; color: #94a3b8; white-space: nowrap; padding: 4px 8px; background: rgba(255,255,255,0.05); border-radius: 6px; border: 1px solid rgba(255,255,255,0.08);"></span>
+                    <button onclick="toggleAddBroadcastForm()" class="btn btn-secondary" id="lcAddCustomBtn" style="background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.5); color: #c7d2fe; font-size: 12px; padding: 7px 12px; cursor: pointer; border-radius: 8px;">+ เพิ่มรายการเอง</button>
+                </div>
+
+                <!-- Form for adding custom broadcast with Channel Dropdown -->
+                <div id="lcAddBroadcastForm" style="display: none; background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 10px; padding: 12px 16px; margin-bottom: 14px; gap: 10px; align-items: center; flex-wrap: wrap;">
+                    <div style="font-weight: 600; font-size: 12px; color: #c7d2fe; display: flex; align-items: center; gap: 6px;">
+                        <span>➕ เพิ่มรายการใหม่:</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 12px; color: #94a3b8;">ช่อง:</span>
+                        <select id="lcNewBroadcastChannel" class="lc-select" style="min-width: 140px;"></select>
+                    </div>
+                    <div style="flex: 1; min-width: 220px; display: flex; align-items: center; gap: 6px;">
+                        <span style="font-size: 12px; color: #94a3b8;">ชื่อรายการ:</span>
+                        <input type="text" id="lcNewBroadcastTitle" class="lc-input" style="flex: 1;" placeholder="ระบุชื่อรายการ (เช่น โหนกระแส, ตอบโจทย์)..." onkeydown="if(event.key==='Enter')confirmAddCustomBroadcast()">
+                    </div>
+                    <div style="display: flex; gap: 6px;">
+                        <button onclick="confirmAddCustomBroadcast()" class="btn btn-primary" style="padding: 7px 14px; font-size: 12px; border-radius: 6px; font-weight: 600; cursor: pointer;">เพิ่มรายการ</button>
+                        <button onclick="toggleAddBroadcastForm(false)" class="btn btn-secondary" style="padding: 7px 12px; font-size: 12px; border-radius: 6px; cursor: pointer;">ยกเลิก</button>
+                    </div>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="lc-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 110px;">ช่อง</th>
+                                <th style="width: 190px;">ชื่อรายการ</th>
+                                <th>Facebook URL / Watch</th>
+                                <th>YouTube Stream / Channel</th>
+                                <th style="width: 150px;">TikTok Live</th>
+                                <th style="width: 140px;">X (Twitter)</th>
+                                <th style="width: 45px; text-align: center;">ลบ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lcBroadcastsTableBody">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tab 2: Channel Links -->
+            <div id="lcBodyChannels" class="lc-modal-body" style="display: none;">
+                <div class="lc-info-banner">
+                    <span style="font-size: 18px; line-height: 1;">💡</span>
+                    <div>
+                        <strong>วิธีใส่หลายลิงก์สำหรับช่องเดียวกัน:</strong> 
+                        หากช่องใดมีการถ่ายทอดสดแยกหลายเพจ (เช่น ช่อง 3 ถ่ายทอดทั้งเพจหลัก <code>Ch3Thailand</code> และ <code>Ch3Plus</code>) 
+                        คุณสามารถกดปุ่ม <span class="lc-highlight-badge">+ เพิ่มลิงก์</span> ใต้ช่องนั้นๆ เพื่อใส่ URL เพจที่ 2 หรือ 3 เพิ่มได้ทันที 
+                        ระบบจะค้นหารายการสดจากทุกเพจที่ระบุไว้พร้อมกัน
+                    </div>
+                </div>
+                <div class="lc-toolbar" style="margin-bottom: 12px;">
+                    <input type="text" id="lcChannelSearchInput" class="lc-input" style="max-width: 280px;" placeholder="🔍 ค้นหาชื่อช่อง..." oninput="renderChannelLinks()">
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="lc-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 120px;">ช่อง</th>
+                                <th>Facebook URLs <span class="lc-highlight-badge">หลายเพจได้</span></th>
+                                <th>YouTube URLs <span class="lc-highlight-badge">หลายช่องได้</span></th>
+                                <th style="width: 220px;">TikTok Live URLs</th>
+                                <th style="width: 220px;">X (Twitter) URLs</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lcChannelsTableBody">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="lc-modal-footer">
+                <div id="lcStatusText" class="lc-status-text">พร้อมใช้งาน</div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <button class="btn btn-secondary" onclick="manualRefreshLinkConfig()" style="background: rgba(99, 102, 241, 0.12); border: 1px solid rgba(99, 102, 241, 0.35); color: #a5b4fc; padding: 8px 14px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;" title="ดึงข้อมูลล่าสุดจาก Google Sheet มาผสานกับที่แก้ไขอยู่">🔄 รีเฟรชข้อมูล (Sync)</button>
+                    <button class="btn btn-secondary" onclick="closeLinkConfigModal()" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #cbd5e1; padding: 8px 16px; border-radius: 8px; cursor: pointer;">ยกเลิก</button>
+                    <button id="lcSaveBtn" class="btn btn-primary" onclick="saveLinkConfigToSheet()" style="padding: 8px 18px; border-radius: 8px; font-weight: 600; cursor: pointer;">💾 บันทึกลง Google Sheet</button>
                 </div>
             </div>
         </div>
@@ -4531,28 +4930,14 @@
                     // ชิ้นที่เล็กกว่านี้ไม่ต้องวาดตัวชี้เลย (ดูสัดส่วนจาก legend / tooltip แทน)
                     // เพื่อไม่ให้ตัวชี้ของชิ้นเล็ก ๆ หลายอันมากองทับกัน
                     const MIN_PCT_LEADER = 3;
-                    // บักเก็ต "อื่นๆ" ไม่ต้องมีตัวชี้ % (เป็นของยิบย่อยรวมกัน ไม่สื่อความหมาย)
-                    const REST_LABELS = ['อื่นๆ', 'หมวดอื่น ๆ'];
                     const outer = [];
                     meta.data.forEach((arc, i) => {
                         const val = ds.data[i] || 0;
                         const pct = val / total * 100;
                         if (pct <= 0) return;
-                        const isRest = REST_LABELS.includes(String(chart.data.labels[i]));
                         const label = pct >= 10 ? Math.round(pct) + '%' : pct.toFixed(1) + '%';
                         const mid = (arc.startAngle + arc.endAngle) / 2;
                         const cos = Math.cos(mid), sin = Math.sin(mid);
-                        if (isRest) {
-                            // เขียน % กลางชิ้นเฉพาะเมื่อชิ้นใหญ่พอ ไม่ลากเส้นชี้ออกนอก
-                            if (pct >= 6) {
-                                const r = (arc.innerRadius + arc.outerRadius) / 2;
-                                ctx.fillStyle = '#ffffff';
-                                ctx.textAlign = 'center';
-                                ctx.textBaseline = 'middle';
-                                ctx.fillText(label, arc.x + cos * r, arc.y + sin * r);
-                            }
-                            return;
-                        }
                         if (pct >= 6) {
                             const r = (arc.innerRadius + arc.outerRadius) / 2;
                             ctx.fillStyle = '#ffffff';
@@ -4588,17 +4973,12 @@
                         }
                         list.forEach(o => { o.y = Math.max(yMin, Math.min(yMax, o.y)); });
                     });
-                    const LABEL_W = 34;   // เผื่อความกว้างข้อความ "xx.x%"
                     outer.forEach(o => {
                         const { arc, cos, sin, label, right } = o;
                         const rOut = arc.outerRadius;
                         const x1 = arc.x + cos * rOut;
                         const y1 = arc.y + sin * rOut;
-                        // clamp ปลายเส้น/ข้อความให้อยู่ในกรอบ ไม่ล้นออกนอกกล่อง
-                        let x2 = arc.x + cos * (rOut + 14);
-                        x2 = right
-                            ? Math.min(x2, area.right - LABEL_W)
-                            : Math.max(x2, area.left + LABEL_W);
+                        const x2 = arc.x + cos * (rOut + 14);
                         const y2 = o.y;
                         ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
                         ctx.lineWidth = 1;
@@ -4623,8 +5003,8 @@
 
             /* ---------- กราฟที่ 1: แท่งแนวนอน ยอดวิวสูงสุดรายรายการ ---------- */
             const sortedProgs = programs.slice().sort((a, b) => b.views - a.views);
-            const topNRaw = (document.getElementById('vsTopN') || {}).value || '30';
-            const topN = topNRaw === 'all' ? sortedProgs.length : Math.min(parseInt(topNRaw, 10) || 30, sortedProgs.length);
+            const topNRaw = (document.getElementById('vsTopN') || {}).value || '15';
+            const topN = topNRaw === 'all' ? sortedProgs.length : Math.min(parseInt(topNRaw, 10) || 15, sortedProgs.length);
             const topProgs = sortedProgs.slice(0, topN);
 
             const topTitleEl = document.getElementById('vsTopProgramsTitle');
@@ -4781,10 +5161,1003 @@
                 .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
 
+        /* ============================================================================
+         * Link Configuration Modal Logic (Channel Links & Broadcast Overrides)
+         * ========================================================================== */
+        const DEFAULT_CHANNEL_CONFIGS = {
+            "3 HD": { facebook: ["https://www.facebook.com/watch/Ch3Thailand/"], youtube: ["https://www.youtube.com/@ch3thailand/streams"], tiktok: ["https://www.tiktok.com/@ch3thailand/live"], x: ["https://x.com/Ch3Thailand_33"] },
+            "7 HD": { facebook: ["https://www.facebook.com/watch/Ch7HD/"], youtube: ["https://www.youtube.com/@Ch7HD/streams"], tiktok: ["https://www.tiktok.com/@ch7hdofficial/live"], x: ["https://x.com/Ch7HD"] },
+            "8": { facebook: ["https://www.facebook.com/watch/thaich8newslive/"], youtube: ["https://www.youtube.com/@thaich8/streams"], tiktok: ["https://www.tiktok.com/@thaich8/live"], x: ["https://x.com/thaich8news"] },
+            "9 MCOT HD": { facebook: ["https://www.facebook.com/watch/9mcot/"], youtube: ["https://www.youtube.com/@9MCOT/streams"], tiktok: ["https://www.tiktok.com/@tna.mcot/live"], x: ["https://x.com/9_mcot"] },
+            "GMM Channel": { facebook: ["https://www.facebook.com/watch/gmmtvofficial/"], youtube: ["https://www.youtube.com/@gmmtv/streams"], tiktok: ["https://www.tiktok.com/@gmm25channel/live"], x: ["https://x.com/GMM25Thailand"] },
+            "NBT 2 HD": { facebook: ["https://www.facebook.com/watch/NBTHD/"], youtube: ["https://www.youtube.com/@NBT2HD/streams"], tiktok: ["https://www.tiktok.com/@nbt2hdonline/live"], x: ["https://x.com/nbt2hd"] },
+            "Nation TV": { facebook: ["https://www.facebook.com/watch/NationTVLive/"], youtube: ["https://www.youtube.com/@Nationtv22Live/streams"], tiktok: ["https://www.tiktok.com/@nationonlineth"], x: ["https://x.com/NationOnlineth"] },
+            "ONE": { facebook: ["https://www.facebook.com/watch/one31Thailand/"], youtube: ["https://www.youtube.com/@one31official/streams"], tiktok: ["https://www.tiktok.com/@channel.one31/live"], x: ["https://x.com/onehdthailand"] },
+            "T Sports 7": { facebook: ["https://www.facebook.com/watch/TSports7Official/"], youtube: ["https://www.youtube.com/channel/UCC5EeWJ1sQszRLCIuy5OvFA/streams"], tiktok: ["https://www.tiktok.com/@tsports7/live"], x: ["https://x.com/TSports7"] },
+            "TNN16": { facebook: ["https://www.facebook.com/watch/TNN16LIVE/"], youtube: ["https://www.youtube.com/@TNN.Online/streams"], tiktok: ["https://www.tiktok.com/@tnnonline/live"], x: ["https://x.com/tnnthailand"] },
+            "True4U": { facebook: ["https://www.facebook.com/watch/True4U/"], youtube: ["https://www.youtube.com/@true4utv/streams"], tiktok: ["https://www.tiktok.com/@true4u/live"], x: ["https://x.com/true4utv"] },
+            "TV5 HD": { facebook: ["https://www.facebook.com/watch/TV5HDONLINE/"], youtube: ["https://www.youtube.com/channel/UC0bjXr3eG8cieKrXKutZeew/streams"], tiktok: ["https://www.tiktok.com/@tv5hdonline/live"], x: ["https://x.com/Tv5hdOnline"] },
+            "PPTV": { facebook: ["https://www.facebook.com/watch/PPTVHD36/"], youtube: ["https://www.youtube.com/@PPTVHD36/streams"], tiktok: ["https://www.tiktok.com/@pptv.thailand/live"], x: ["https://x.com/PPTVHD36"] },
+            "TP Channel": { facebook: ["https://www.facebook.com/watch/TPchannelFan/"], youtube: ["https://www.youtube.com/@TPchannel10/streams"], tiktok: ["https://www.tiktok.com/@tpchannelofficial"], x: ["https://x.com/TPchannelFan"] },
+            "Thai PBS": { facebook: ["https://www.facebook.com/watch/ThaiPBS/"], youtube: ["https://www.youtube.com/@ThaiPBS/streams"], tiktok: ["https://www.tiktok.com/@thaipbs/live"], x: ["https://x.com/ThaiPBS"] },
+            "AMARIN TV HD": { facebook: ["https://www.facebook.com/watch/AMARINTVHD/"], youtube: ["https://www.youtube.com/channel/UCzMoibQRslh_1bTuW0YXc6A/streams"], tiktok: ["https://www.tiktok.com/@amarintvhd/live"], x: ["https://x.com/amarintvhd"] },
+            "Workpoint TV": { facebook: ["https://www.facebook.com/watch/workpoint/"], youtube: ["https://www.youtube.com/@WorkpointOfficial/streams"], tiktok: ["https://www.tiktok.com/@workpointofficial/live"], x: ["https://x.com/Workpoint_Ent"] },
+            "MONO 29": { facebook: ["https://www.facebook.com/watch/MonomaxSportsTV/"], youtube: ["https://www.youtube.com/channel/UCMOAZtTJ-y685oHwDs1Aiqg/streams"], tiktok: ["https://www.tiktok.com/@mono29tv/live"], x: ["https://x.com/mono29entertain"] },
+            "Thairath TV": { facebook: ["https://www.facebook.com/watch/thairathtv/"], youtube: ["https://www.youtube.com/@thairathnews/streams"], tiktok: ["https://www.tiktok.com/@thairath_news/live"], x: ["https://x.com/Thairath_News"] }
+        };
+
+        const ALL_19_CHANNELS = Object.keys(DEFAULT_CHANNEL_CONFIGS);
+
+        let currentLinkConfig = {
+            channel_links: {},
+            broadcast_overrides: [],
+            channel_broadcasts: {}
+        };
+        // Baseline snapshot at the time of loading/last saving (for 3-way merge conflict resolution)
+        let baseLinkConfig = {
+            channel_links: {},
+            broadcast_overrides: [],
+            channel_broadcasts: {}
+        };
+        let linkConfigLoaded = false;
+        let linkConfigLoading = false;
+        let activeLinkConfigTab = 'broadcasts';
+
+        // URL Normalization for deduplication (case-insensitive, protocol-agnostic, strips trailing slashes)
+        function normalizeUrlForDedupe(url) {
+            if (!url) return '';
+            let s = String(url).trim();
+            return s.toLowerCase().replace(/^https?:\/\//, '').replace(/\/+$/, '');
+        }
+
+        // Deduplicate an array of URLs while preserving original formatting of the first occurrence
+        function dedupeUrlList(urlList) {
+            if (!Array.isArray(urlList)) return [];
+            const out = [];
+            const seen = new Set();
+            for (let i = 0; i < urlList.length; i++) {
+                const u = String(urlList[i] || '').trim();
+                if (!u || u === '-') continue;
+                const norm = normalizeUrlForDedupe(u);
+                if (!seen.has(norm)) {
+                    seen.add(norm);
+                    out.push(u);
+                }
+            }
+            return out;
+        }
+
+        // 3-Way list merge for URL arrays (Base, Latest from Sheet, User's local edits)
+        function mergeUrlLists3Way(baseList, latestList, userList) {
+            const base = dedupeUrlList(baseList || []);
+            const latest = dedupeUrlList(latestList || []);
+            const user = dedupeUrlList(userList || []);
+
+            const baseSet = new Set(base.map(normalizeUrlForDedupe));
+            const userSet = new Set(user.map(normalizeUrlForDedupe));
+
+            const userAdded = user.filter(u => !baseSet.has(normalizeUrlForDedupe(u)));
+            const userDeleted = new Set(base.filter(b => !userSet.has(normalizeUrlForDedupe(b))).map(normalizeUrlForDedupe));
+            const otherAdded = latest.filter(l => !baseSet.has(normalizeUrlForDedupe(l)));
+
+            const result = [];
+            const seen = new Set();
+
+            // 1. Keep URLs from latest sheet (unless current user explicitly deleted them)
+            latest.forEach(u => {
+                const norm = normalizeUrlForDedupe(u);
+                if (!userDeleted.has(norm)) {
+                    if (!seen.has(norm)) {
+                        seen.add(norm);
+                        result.push(u);
+                    }
+                }
+            });
+
+            // 2. Add URLs added by this user
+            userAdded.forEach(u => {
+                const norm = normalizeUrlForDedupe(u);
+                if (!seen.has(norm)) {
+                    seen.add(norm);
+                    result.push(u);
+                }
+            });
+
+            // New URLs discovered from other concurrent editors that were not in user's working copy
+            const newFromOthers = otherAdded.filter(o => !userSet.has(normalizeUrlForDedupe(o)));
+
+            return {
+                merged: result,
+                newFromOthers: newFromOthers
+            };
+        }
+
+        function areOverridesEqual(bo1, bo2) {
+            if (!bo1 && !bo2) return true;
+            if (!bo1 || !bo2) return false;
+            const plats = ['facebook', 'youtube', 'tiktok', 'x'];
+            for (let i = 0; i < plats.length; i++) {
+                const p = plats[i];
+                const l1 = dedupeUrlList(bo1[p] || []).map(normalizeUrlForDedupe).sort().join('\n');
+                const l2 = dedupeUrlList(bo2[p] || []).map(normalizeUrlForDedupe).sort().join('\n');
+                if (l1 !== l2) return false;
+            }
+            return true;
+        }
+
+        // Smart 3-way merge across all channels and broadcast overrides
+        function smartMergeLinkConfig(baseConfig, latestConfig, userConfig, allChannels) {
+            const mergedChannels = {};
+            let otherChangesCount = 0;
+            const mergeNotes = [];
+
+            // 1. Merge Channel Multi-Links
+            allChannels.forEach(ch => {
+                const baseCh = (baseConfig && baseConfig.channel_links && baseConfig.channel_links[ch]) || {};
+                const latestCh = (latestConfig && latestConfig.channel_links && latestConfig.channel_links[ch]) || {};
+                const userCh = (userConfig && userConfig.channel_links && userConfig.channel_links[ch]) || {};
+
+                mergedChannels[ch] = {};
+                ['facebook', 'youtube', 'tiktok', 'x'].forEach(plat => {
+                    const res = mergeUrlLists3Way(baseCh[plat], latestCh[plat], userCh[plat]);
+                    mergedChannels[ch][plat] = res.merged;
+                    if (res.newFromOthers && res.newFromOthers.length > 0) {
+                        otherChangesCount += res.newFromOthers.length;
+                        mergeNotes.push(`${ch} (${plat}): +${res.newFromOthers.length} ลิงก์จากผู้ใช้อื่น`);
+                    }
+                });
+            });
+
+            // 2. Merge Broadcast Overrides
+            const getBoKey = (bo) => `${String(bo.channel || '').trim()}:::${String(bo.title || '').trim().toLowerCase()}`;
+
+            const baseBoMap = new Map();
+            ((baseConfig && baseConfig.broadcast_overrides) || []).forEach(bo => {
+                const k = getBoKey(bo);
+                if (k !== ':::') baseBoMap.set(k, bo);
+            });
+
+            const latestBoMap = new Map();
+            ((latestConfig && latestConfig.broadcast_overrides) || []).forEach(bo => {
+                const k = getBoKey(bo);
+                if (k !== ':::') latestBoMap.set(k, bo);
+            });
+
+            const userBoMap = new Map();
+            ((userConfig && userConfig.broadcast_overrides) || []).forEach(bo => {
+                const k = getBoKey(bo);
+                if (k !== ':::') userBoMap.set(k, bo);
+            });
+
+            // Overrides that the current user explicitly deleted locally
+            const userDeletedBoKeys = new Set();
+            baseBoMap.forEach((v, k) => {
+                if (!userBoMap.has(k)) {
+                    userDeletedBoKeys.add(k);
+                }
+            });
+
+            const mergedOverrides = [];
+            const seenBoKeys = new Set();
+
+            // Process overrides from latest sheet: keep unless current user deleted them
+            latestBoMap.forEach((latestBo, k) => {
+                if (userDeletedBoKeys.has(k)) {
+                    return; // user explicitly deleted this override
+                }
+                if (!userBoMap.has(k)) {
+                    // Added by someone else or untouched by user -> preserve!
+                    const cleanFb = dedupeUrlList(latestBo.facebook);
+                    const cleanYt = dedupeUrlList(latestBo.youtube);
+                    const cleanTt = dedupeUrlList(latestBo.tiktok);
+                    const cleanX = dedupeUrlList(latestBo.x);
+                    if (cleanFb.length || cleanYt.length || cleanTt.length || cleanX.length) {
+                        mergedOverrides.push({
+                            channel: latestBo.channel,
+                            title: latestBo.title,
+                            facebook: cleanFb,
+                            youtube: cleanYt,
+                            tiktok: cleanTt,
+                            x: cleanX
+                        });
+                        seenBoKeys.add(k);
+                        if (!baseBoMap.has(k)) {
+                            otherChangesCount++;
+                            mergeNotes.push(`รายการเฉพาะ: '${latestBo.title}' (${latestBo.channel}) จากผู้ใช้อื่น`);
+                        }
+                    }
+                } else {
+                    // Both have it! 3-way merge its platform URLs
+                    const userBo = userBoMap.get(k);
+                    const baseBo = baseBoMap.get(k) || {};
+                    const mergedBo = {
+                        channel: userBo.channel || latestBo.channel,
+                        title: userBo.title || latestBo.title
+                    };
+                    ['facebook', 'youtube', 'tiktok', 'x'].forEach(plat => {
+                        const res = mergeUrlLists3Way(baseBo[plat], latestBo[plat], userBo[plat]);
+                        mergedBo[plat] = res.merged;
+                        if (res.newFromOthers && res.newFromOthers.length > 0) {
+                            otherChangesCount += res.newFromOthers.length;
+                            mergeNotes.push(`${mergedBo.title} (${plat}): +${res.newFromOthers.length} ลิงก์จากผู้ใช้อื่น`);
+                        }
+                    });
+                    const hasAny = (mergedBo.facebook && mergedBo.facebook.length) ||
+                                   (mergedBo.youtube && mergedBo.youtube.length) ||
+                                   (mergedBo.tiktok && mergedBo.tiktok.length) ||
+                                   (mergedBo.x && mergedBo.x.length);
+                    if (hasAny) {
+                        mergedOverrides.push(mergedBo);
+                    } else if (baseBo.facebook?.length || baseBo.youtube?.length || baseBo.tiktok?.length || baseBo.x?.length) {
+                        otherChangesCount++;
+                        mergeNotes.push(`รายการเฉพาะ: '${mergedBo.title}' (${mergedBo.channel}) ลิงก์ทั้งหมดถูกลบ`);
+                    }
+                    seenBoKeys.add(k);
+                }
+            });
+
+            // Check overrides in userBoMap (newly added or locally modified)
+            userBoMap.forEach((userBo, k) => {
+                if (!seenBoKeys.has(k)) {
+                    const baseBo = baseBoMap.get(k);
+                    // If this override was in baseBoMap, but missing in latestBoMap:
+                    // Another user emptied/deleted it in Google Sheets!
+                    if (baseBo) {
+                        // If current user made NO new modifications to it after base, respect the deletion!
+                        if (areOverridesEqual(userBo, baseBo)) {
+                            otherChangesCount++;
+                            mergeNotes.push(`รายการเฉพาะ: '${userBo.title}' (${userBo.channel}) ถูกลบโดยผู้ใช้อื่น`);
+                            return; // Do NOT resurrect! Drop it!
+                        }
+                    }
+                    const cleanFb = dedupeUrlList(userBo.facebook);
+                    const cleanYt = dedupeUrlList(userBo.youtube);
+                    const cleanTt = dedupeUrlList(userBo.tiktok);
+                    const cleanX = dedupeUrlList(userBo.x);
+                    if (cleanFb.length || cleanYt.length || cleanTt.length || cleanX.length) {
+                        mergedOverrides.push({
+                            channel: userBo.channel,
+                            title: userBo.title,
+                            facebook: cleanFb,
+                            youtube: cleanYt,
+                            tiktok: cleanTt,
+                            x: cleanX
+                        });
+                        seenBoKeys.add(k);
+                    }
+                }
+            });
+
+            // 3. Preserve channel_broadcasts (unique broadcasts of each channel's tab)
+            const mergedBroadcasts = (latestConfig && latestConfig.channel_broadcasts && Object.keys(latestConfig.channel_broadcasts).length > 0)
+                ? JSON.parse(JSON.stringify(latestConfig.channel_broadcasts))
+                : (userConfig && userConfig.channel_broadcasts && Object.keys(userConfig.channel_broadcasts).length > 0)
+                    ? JSON.parse(JSON.stringify(userConfig.channel_broadcasts))
+                    : ((baseConfig && baseConfig.channel_broadcasts) ? JSON.parse(JSON.stringify(baseConfig.channel_broadcasts)) : {});
+
+            return {
+                mergedConfig: {
+                    channel_links: mergedChannels,
+                    broadcast_overrides: mergedOverrides,
+                    channel_broadcasts: mergedBroadcasts
+                },
+                otherChangesCount,
+                mergeNotes
+            };
+        }
+
+        // Direct async fetch helper for latest link configuration (supports JSON and JSONP fallback)
+        function fetchLatestLinkConfigDirect(options) {
+            const isQuick = Boolean(options && options.quick);
+            const quickParam = isQuick ? '&quick=1' : '';
+            return new Promise(async (resolve, reject) => {
+                let resolved = false;
+                const timer = setTimeout(() => {
+                    if (!resolved) {
+                        resolved = true;
+                        reject(new Error('หมดเวลาเชื่อมต่อ Google Sheet'));
+                    }
+                }, 9000);
+
+                try {
+                    const res = await fetch(`${VIEW_STATS_API}?action=get_link_config${quickParam}&_=${Date.now()}`, { redirect: 'follow' });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (!resolved) {
+                            resolved = true;
+                            clearTimeout(timer);
+                            return resolve(data);
+                        }
+                    }
+                } catch (e) {
+                    // Try JSONP fallback
+                }
+
+                // JSONP Fallback
+                const callbackName = 'lc_merge_cb_' + Date.now();
+                const script = document.createElement('script');
+                window[callbackName] = function(data) {
+                    if (!resolved) {
+                        resolved = true;
+                        clearTimeout(timer);
+                        try { delete window[callbackName]; } catch (e) {}
+                        if (script.parentNode) script.parentNode.removeChild(script);
+                        resolve(data);
+                    }
+                };
+                script.onerror = function() {
+                    if (!resolved) {
+                        resolved = true;
+                        clearTimeout(timer);
+                        try { delete window[callbackName]; } catch (e) {}
+                        if (script.parentNode) script.parentNode.removeChild(script);
+                        reject(new Error('JSONP fetch failed'));
+                    }
+                };
+                script.src = `${VIEW_STATS_API}?action=get_link_config${quickParam}&callback=${callbackName}&_=${Date.now()}`;
+                document.head.appendChild(script);
+            });
+        }
+
+        async function manualRefreshLinkConfig() {
+            const statusEl = document.getElementById('lcStatusText');
+            if (statusEl) statusEl.textContent = '⏳ กำลังดึงข้อมูลล่าสุดจาก Google Sheet...';
+            try {
+                const latest = await fetchLatestLinkConfigDirect();
+                if (latest && (latest.ok || latest.status === 'ok')) {
+                    const mergeResult = smartMergeLinkConfig(
+                        baseLinkConfig,
+                        latest,
+                        currentLinkConfig,
+                        ALL_19_CHANNELS
+                    );
+                    currentLinkConfig = mergeResult.mergedConfig;
+                    if (latest.channel_broadcasts) {
+                        currentLinkConfig.channel_broadcasts = JSON.parse(JSON.stringify(latest.channel_broadcasts));
+                    }
+                    baseLinkConfig = JSON.parse(JSON.stringify(latest));
+                    renderLinkConfigViews();
+                    if (mergeResult.otherChangesCount > 0) {
+                        if (statusEl) statusEl.textContent = `🔄 รวมข้อมูลใหม่จากผู้อื่นเรียบร้อยแล้ว (+${mergeResult.otherChangesCount} จุด)`;
+                        alert(`🔄 รวมข้อมูลใหม่จาก Google Sheet เรียบร้อยแล้ว (+${mergeResult.otherChangesCount} จุด)\n• ${mergeResult.mergeNotes.slice(0, 5).join('\n• ')}`);
+                    } else {
+                        if (statusEl) statusEl.textContent = `✅ ข้อมูลตรงกับ Google Sheet ล่าสุดแล้ว (${new Date().toLocaleTimeString('th-TH')})`;
+                    }
+                }
+            } catch (err) {
+                if (statusEl) statusEl.textContent = '⚠️ ไม่สามารถดึงข้อมูลล่าสุดได้: ' + (err.message || err);
+            }
+        }
+
+        function openLinkConfigModal() {
+            const modal = document.getElementById('linkConfigModal');
+            if (!modal) return;
+            modal.style.display = 'flex';
+
+            // Populate channel filter dropdown if not yet populated
+            const sel = document.getElementById('lcChannelFilter');
+            if (sel && sel.options.length <= 1) {
+                ALL_19_CHANNELS.forEach(ch => {
+                    const opt = document.createElement('option');
+                    opt.value = ch;
+                    opt.textContent = ch;
+                    sel.appendChild(opt);
+                });
+            }
+
+            // Populate new broadcast channel dropdown if not yet populated
+            const newChSel = document.getElementById('lcNewBroadcastChannel');
+            if (newChSel && newChSel.options.length === 0) {
+                ALL_19_CHANNELS.forEach(ch => {
+                    const opt = document.createElement('option');
+                    opt.value = ch;
+                    opt.textContent = ch;
+                    newChSel.appendChild(opt);
+                });
+            }
+
+            if (!linkConfigLoaded && !linkConfigLoading) {
+                loadLinkConfigFromSheet();
+            } else {
+                renderLinkConfigViews();
+            }
+        }
+
+        function closeLinkConfigModal() {
+            const modal = document.getElementById('linkConfigModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function switchLinkConfigTab(tab) {
+            activeLinkConfigTab = tab;
+            document.getElementById('lcTabBroadcasts').classList.toggle('active', tab === 'broadcasts');
+            document.getElementById('lcTabChannels').classList.toggle('active', tab === 'channels');
+            document.getElementById('lcBodyBroadcasts').style.display = tab === 'broadcasts' ? 'block' : 'none';
+            document.getElementById('lcBodyChannels').style.display = tab === 'channels' ? 'block' : 'none';
+            renderLinkConfigViews();
+        }
+
+        async function loadLinkConfigFromSheet() {
+            linkConfigLoading = true;
+            const statusEl = document.getElementById('lcStatusText');
+            if (statusEl) statusEl.textContent = '⏳ กำลังโหลดการตั้งค่าจาก Google Sheet...';
+
+            try {
+                const res = await fetch(`${VIEW_STATS_API}?action=get_link_config&_=${Date.now()}`, { redirect: 'follow' });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const payload = await res.json();
+                handleLinkConfigResponse(payload);
+            } catch (err) {
+                // Try JSONP fallback
+                tryLinkConfigJsonp();
+            }
+        }
+
+        function tryLinkConfigJsonp() {
+            const old = document.getElementById('lc-jsonp-script');
+            if (old) old.remove();
+            const s = document.createElement('script');
+            s.id = 'lc-jsonp-script';
+            s.src = `${VIEW_STATS_API}?action=get_link_config&callback=handleLinkConfigResponse&_=${Date.now()}`;
+            s.onerror = () => {
+                linkConfigLoading = false;
+                const statusEl = document.getElementById('lcStatusText');
+                if (statusEl) statusEl.textContent = '⚠️ โหลดไม่สำเร็จ — ตรวจสอบการเชื่อมต่อ Google Sheet';
+                renderLinkConfigViews();
+            };
+            document.head.appendChild(s);
+        }
+
+        window.handleLinkConfigResponse = function(payload) {
+            linkConfigLoading = false;
+            if (payload && payload.ok) {
+                currentLinkConfig.channel_links = JSON.parse(JSON.stringify(payload.channel_links || {}));
+                currentLinkConfig.broadcast_overrides = JSON.parse(JSON.stringify(payload.broadcast_overrides || []));
+                if (payload.channel_broadcasts) {
+                    currentLinkConfig.channel_broadcasts = JSON.parse(JSON.stringify(payload.channel_broadcasts));
+                }
+                baseLinkConfig = JSON.parse(JSON.stringify(currentLinkConfig));
+                linkConfigLoaded = true;
+                const statusEl = document.getElementById('lcStatusText');
+                if (statusEl) statusEl.textContent = `✅ โหลดการตั้งค่าล่าสุดแล้ว (${new Date().toLocaleTimeString('th-TH')})`;
+            } else {
+                baseLinkConfig = JSON.parse(JSON.stringify(currentLinkConfig));
+                const statusEl = document.getElementById('lcStatusText');
+                if (statusEl) statusEl.textContent = '⚠️ ใช้การตั้งค่าเริ่มต้น';
+            }
+            renderLinkConfigViews();
+        };
+
+        function renderLinkConfigViews() {
+            if (activeLinkConfigTab === 'broadcasts') {
+                renderBroadcastOverrides();
+            } else {
+                renderChannelLinks();
+            }
+        }
+
+        function getDiscoveredBroadcasts() {
+            const seen = new Set();
+            const list = [];
+
+            // 1. From existing overrides (custom additions or saved overrides)
+            (currentLinkConfig.broadcast_overrides || []).forEach(bo => {
+                const ch = String(bo.channel || '').trim();
+                const title = String(bo.title || '').trim();
+                if (ch && title) {
+                    const key = `${ch}:::${title.toLowerCase()}`;
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        list.push({ channel: ch, title: title, override: bo });
+                    }
+                }
+            });
+
+            // 2. From channel schedule sheets (unique broadcasts of each channel's tab in Google Sheets)
+            if (currentLinkConfig.channel_broadcasts) {
+                Object.keys(currentLinkConfig.channel_broadcasts).forEach(ch => {
+                    const titles = currentLinkConfig.channel_broadcasts[ch] || [];
+                    titles.forEach(rawTitle => {
+                        const title = String(rawTitle || '').trim();
+                        if (title) {
+                            const key = `${ch}:::${title.toLowerCase()}`;
+                            if (!seen.has(key)) {
+                                seen.add(key);
+                                list.push({ channel: ch, title: title, override: null });
+                            }
+                        }
+                    });
+                });
+            }
+
+            // 3. Fallback from vsRawRows (Live View Stats loaded data)
+            if (Array.isArray(vsRawRows)) {
+                vsRawRows.forEach(r => {
+                    const ch = String(r.channel || '').trim();
+                    const title = String(r.title || '').trim();
+                    if (ch && title) {
+                        const key = `${ch}:::${title.toLowerCase()}`;
+                        if (!seen.has(key)) {
+                            seen.add(key);
+                            list.push({ channel: ch, title: title, override: null });
+                        }
+                    }
+                });
+            }
+
+            list.sort((a, b) => a.channel.localeCompare(b.channel, 'th') || a.title.localeCompare(b.title, 'th'));
+            return list;
+        }
+
+        function renderBroadcastOverrides() {
+            const tbody = document.getElementById('lcBroadcastsTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const chFilter = (document.getElementById('lcChannelFilter') || {}).value || '';
+            const q = ((document.getElementById('lcSearchInput') || {}).value || '').trim().toLowerCase();
+
+            const allItems = getDiscoveredBroadcasts();
+            const filtered = allItems.filter(it => {
+                if (chFilter && it.channel !== chFilter) return false;
+                if (q && !it.title.toLowerCase().includes(q) && !it.channel.toLowerCase().includes(q)) return false;
+                return true;
+            });
+
+            const badgeEl = document.getElementById('lcBroadcastCountBadge');
+            if (badgeEl) {
+                badgeEl.textContent = `${filtered.length} รายการ`;
+            }
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 24px;">ไม่พบรายการที่ตรงกับเงื่อนไขค้นหา</td></tr>`;
+                return;
+            }
+
+            const frag = document.createDocumentFragment();
+            filtered.forEach((it) => {
+                const bo = it.override || (currentLinkConfig.broadcast_overrides || []).find(b =>
+                    b.channel === it.channel && String(b.title || '').trim().toLowerCase() === it.title.toLowerCase()
+                ) || {};
+
+                const fbVal = Array.isArray(bo.facebook) ? bo.facebook.join(', ') : (bo.facebook || '');
+                const ytVal = Array.isArray(bo.youtube) ? bo.youtube.join(', ') : (bo.youtube || '');
+                const ttVal = Array.isArray(bo.tiktok) ? bo.tiktok.join(', ') : (bo.tiktok || '');
+                const xVal = Array.isArray(bo.x) ? bo.x.join(', ') : (bo.x || '');
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><span class="lc-badge">${escapeHtml(it.channel)}</span></td>
+                    <td style="font-weight: 600; color: #f1f5f9;">${escapeHtml(it.title)}</td>
+                    <td><input type="text" class="lc-input lc-bo-fb" placeholder="(ใช้ตามช่อง หรือระบุลิงก์ FB)" value="${escapeHtml(fbVal)}"></td>
+                    <td><input type="text" class="lc-input lc-bo-yt" placeholder="(ใช้ตามช่อง หรือระบุลิงก์ YT)" value="${escapeHtml(ytVal)}"></td>
+                    <td><input type="text" class="lc-input lc-bo-tt" placeholder="(ใช้ตามช่อง)" value="${escapeHtml(ttVal)}"></td>
+                    <td><input type="text" class="lc-input lc-bo-x" placeholder="(ใช้ตามช่อง)" value="${escapeHtml(xVal)}"></td>
+                    <td style="text-align: center;"><button type="button" class="lc-btn-del" title="ล้างลิงก์เฉพาะรายการนี้">&times;</button></td>
+                `;
+
+                const fbInp = tr.querySelector('.lc-bo-fb');
+                const ytInp = tr.querySelector('.lc-bo-yt');
+                const ttInp = tr.querySelector('.lc-bo-tt');
+                const xInp = tr.querySelector('.lc-bo-x');
+                const delBtn = tr.querySelector('.lc-btn-del');
+
+                if (fbInp) fbInp.addEventListener('change', (e) => updateBroadcastOverride(it.channel, it.title, 'facebook', e.target.value));
+                if (ytInp) ytInp.addEventListener('change', (e) => updateBroadcastOverride(it.channel, it.title, 'youtube', e.target.value));
+                if (ttInp) ttInp.addEventListener('change', (e) => updateBroadcastOverride(it.channel, it.title, 'tiktok', e.target.value));
+                if (xInp) xInp.addEventListener('change', (e) => updateBroadcastOverride(it.channel, it.title, 'x', e.target.value));
+                if (delBtn) delBtn.addEventListener('click', () => deleteBroadcastOverride(it.channel, it.title));
+
+                frag.appendChild(tr);
+            });
+            tbody.appendChild(frag);
+        }
+
+        function cleanFbPageUrl(url) {
+            if (!url) return '';
+            let u = String(url).trim();
+            if (u.includes('/videos/') || u.includes('v=')) return u;
+            try {
+                if (!u.startsWith('http://') && !u.startsWith('https://')) {
+                    u = 'https://' + u;
+                }
+                const parsed = new URL(u);
+                if (!parsed.hostname.includes('facebook.com') && !parsed.hostname.includes('fb.com')) return u;
+
+                if (parsed.pathname.includes('profile.php') && parsed.searchParams.has('id')) {
+                    return `https://www.facebook.com/watch/${parsed.searchParams.get('id')}/`;
+                }
+
+                const parts = parsed.pathname.split('/').filter(Boolean);
+                if (!parts.length) return u;
+
+                if (parts[0].toLowerCase() === 'watch') {
+                    if (parts[1]) return `https://www.facebook.com/watch/${parts[1]}/`;
+                    return u;
+                }
+
+                const reserved = ['watch', 'live_videos', 'videos', 'home', 'groups', 'stories', 'share', 'login', 'pages'];
+                if (reserved.includes(parts[0].toLowerCase())) return u;
+
+                return `https://www.facebook.com/watch/${parts[0]}/`;
+            } catch (e) {
+                return u;
+            }
+        }
+
+        function updateBroadcastOverride(channel, title, platform, value) {
+            if (!currentLinkConfig.broadcast_overrides) currentLinkConfig.broadcast_overrides = [];
+            let bo = currentLinkConfig.broadcast_overrides.find(b =>
+                b.channel === channel && String(b.title || '').trim().toLowerCase() === title.toLowerCase()
+            );
+            if (!bo) {
+                bo = { channel: channel, title: title, facebook: [], youtube: [], tiktok: [], x: [] };
+                currentLinkConfig.broadcast_overrides.push(bo);
+            }
+            let urls = String(value || '').split(/[\r\n,]+/).map(s => s.trim()).filter(Boolean);
+            if (platform === 'facebook') {
+                urls = urls.map(cleanFbPageUrl);
+            }
+            bo[platform] = dedupeUrlList(urls);
+        }
+
+        function deleteBroadcastOverride(channel, title) {
+            if (!currentLinkConfig.broadcast_overrides) return;
+            const idx = currentLinkConfig.broadcast_overrides.findIndex(b =>
+                b.channel === channel && String(b.title || '').trim().toLowerCase() === title.toLowerCase()
+            );
+            if (idx >= 0) {
+                currentLinkConfig.broadcast_overrides.splice(idx, 1);
+            }
+            renderBroadcastOverrides();
+        }
+
+        function toggleAddBroadcastForm(show) {
+            const form = document.getElementById('lcAddBroadcastForm');
+            if (!form) return;
+            const isVisible = form.style.display !== 'none';
+            const targetShow = (show === undefined) ? !isVisible : Boolean(show);
+            form.style.display = targetShow ? 'flex' : 'none';
+            if (targetShow) {
+                const curFilter = (document.getElementById('lcChannelFilter') || {}).value;
+                const newChSel = document.getElementById('lcNewBroadcastChannel');
+                if (newChSel) {
+                    if (curFilter) {
+                        newChSel.value = curFilter;
+                    } else if (!newChSel.value) {
+                        newChSel.value = '3 HD';
+                    }
+                }
+                const titleInp = document.getElementById('lcNewBroadcastTitle');
+                if (titleInp) {
+                    titleInp.value = '';
+                    setTimeout(() => titleInp.focus(), 60);
+                }
+            }
+        }
+
+        function confirmAddCustomBroadcast() {
+            const newChSel = document.getElementById('lcNewBroadcastChannel');
+            const titleInp = document.getElementById('lcNewBroadcastTitle');
+            const ch = (newChSel && newChSel.value) ? newChSel.value : '3 HD';
+            const title = (titleInp && titleInp.value) ? titleInp.value.trim() : '';
+            if (!title) {
+                alert('กรุณาระบุชื่อรายการ');
+                if (titleInp) titleInp.focus();
+                return;
+            }
+
+            if (!currentLinkConfig.broadcast_overrides) currentLinkConfig.broadcast_overrides = [];
+            const exists = currentLinkConfig.broadcast_overrides.some(b =>
+                b.channel === ch && String(b.title || '').trim().toLowerCase() === title.toLowerCase()
+            );
+            if (!exists) {
+                currentLinkConfig.broadcast_overrides.unshift({
+                    channel: ch,
+                    title: title,
+                    facebook: [],
+                    youtube: [],
+                    tiktok: [],
+                    x: []
+                });
+            }
+
+            // Sync filter dropdown if user was filtering another channel
+            const filterEl = document.getElementById('lcChannelFilter');
+            if (filterEl && filterEl.value && filterEl.value !== ch) {
+                filterEl.value = ch;
+            }
+            // Clear search filter so newly added row is visible
+            const searchEl = document.getElementById('lcSearchInput');
+            if (searchEl) searchEl.value = '';
+
+            renderBroadcastOverrides();
+            toggleAddBroadcastForm(false);
+
+            // Focus first input of the new row so user can immediately paste URL
+            setTimeout(() => {
+                const firstRowInp = document.querySelector('#lcBroadcastsTableBody tr input.lc-input');
+                if (firstRowInp) firstRowInp.focus();
+            }, 80);
+        }
+
+        function addCustomBroadcastRow() {
+            toggleAddBroadcastForm();
+        }
+
+        function ensureChannelConfigExists(channel) {
+            if (!currentLinkConfig.channel_links) currentLinkConfig.channel_links = {};
+            if (!currentLinkConfig.channel_links[channel]) {
+                const def = DEFAULT_CHANNEL_CONFIGS[channel] || {};
+                currentLinkConfig.channel_links[channel] = {
+                    facebook: def.facebook ? [...def.facebook] : [],
+                    youtube: def.youtube ? [...def.youtube] : [],
+                    tiktok: def.tiktok ? [...def.tiktok] : [],
+                    x: def.x ? [...def.x] : []
+                };
+            }
+            const cfg = currentLinkConfig.channel_links[channel];
+            if (!Array.isArray(cfg.facebook)) cfg.facebook = [];
+            if (!Array.isArray(cfg.youtube)) cfg.youtube = [];
+            if (!Array.isArray(cfg.tiktok)) cfg.tiktok = [];
+            if (!Array.isArray(cfg.x)) cfg.x = [];
+            return cfg;
+        }
+
+        function onChannelUrlChange(channel, platform, index, value) {
+            const cfg = ensureChannelConfigExists(channel);
+            const raw = String(value || '').trim();
+            let split = raw.split(/[\r\n,]+/).map(s => s.trim()).filter(Boolean);
+            if (platform === 'facebook') {
+                split = split.map(cleanFbPageUrl);
+            }
+            if (split.length > 1) {
+                // If user pasted multiple comma/newline separated URLs, expand them into distinct rows
+                cfg[platform].splice(index, 1, ...split);
+            } else {
+                cfg[platform][index] = split[0] || '';
+            }
+            // Automatically deduplicate URLs in this channel platform list
+            cfg[platform] = dedupeUrlList(cfg[platform]);
+            renderChannelLinks();
+        }
+
+        function onAddChannelUrl(channel, platform) {
+            const cfg = ensureChannelConfigExists(channel);
+            cfg[platform].push('');
+            renderChannelLinks();
+            setTimeout(() => {
+                const inputs = Array.from(document.querySelectorAll(`input.lc-url-inp-${platform}`)).filter(el => el.getAttribute('data-ch') === channel);
+                if (inputs.length) {
+                    inputs[inputs.length - 1].focus();
+                }
+            }, 50);
+        }
+
+        function onRemoveChannelUrl(channel, platform, index) {
+            const cfg = ensureChannelConfigExists(channel);
+            cfg[platform].splice(index, 1);
+            renderChannelLinks();
+        }
+
+        function buildMultiUrlBox(channel, platform, placeholderText, btnLabel) {
+            const cfg = ensureChannelConfigExists(channel);
+            const arr = cfg[platform];
+            const displayList = arr.length > 0 ? arr : [''];
+
+            let html = `<div class="lc-multi-url-box">`;
+            displayList.forEach((url, idx) => {
+                html += `
+                    <div class="lc-url-row">
+                        <span class="lc-url-idx">${idx + 1}.</span>
+                        <input type="text" class="lc-input lc-url-inp-${platform}" 
+                            placeholder="${placeholderText}" 
+                            value="${escapeHtml(url)}" 
+                            data-ch="${escapeHtml(channel)}" 
+                            data-plat="${platform}" 
+                            data-idx="${idx}"
+                            onchange="onChannelUrlChange(this.getAttribute('data-ch'), this.getAttribute('data-plat'), parseInt(this.getAttribute('data-idx')), this.value)"
+                            onkeydown="if(event.key==='Enter'){event.preventDefault(); onAddChannelUrl(this.getAttribute('data-ch'), this.getAttribute('data-plat'));}">
+                        ${(displayList.length > 1 || url) ? `
+                            <button type="button" class="lc-btn-del-url" title="ลบลิงก์นี้" onclick="onRemoveChannelUrl(this.previousElementSibling.getAttribute('data-ch'), this.previousElementSibling.getAttribute('data-plat'), parseInt(this.previousElementSibling.getAttribute('data-idx'))">&times;</button>
+                        ` : ''}
+                    </div>
+                `;
+            });
+
+            html += `
+                <button type="button" class="lc-btn-add-url" data-ch="${escapeHtml(channel)}" data-plat="${platform}" onclick="onAddChannelUrl(this.getAttribute('data-ch'), this.getAttribute('data-plat'))">
+                    ${btnLabel}
+                </button>
+            </div>`;
+            return html;
+        }
+
+        function renderChannelLinks() {
+            const tbody = document.getElementById('lcChannelsTableBody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const q = ((document.getElementById('lcChannelSearchInput') || {}).value || '').trim().toLowerCase();
+
+            const channels = ALL_19_CHANNELS.filter(ch => !q || ch.toLowerCase().includes(q));
+            if (channels.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #94a3b8; padding: 24px;">ไม่พบช่องที่ตรงกับคำค้นหา</td></tr>`;
+                return;
+            }
+
+            channels.forEach(ch => {
+                const cfg = ensureChannelConfigExists(ch);
+                const fbCount = cfg.facebook.filter(Boolean).length;
+                const ytCount = cfg.youtube.filter(Boolean).length;
+                const ttCount = cfg.tiktok.filter(Boolean).length;
+                const xCount = cfg.x.filter(Boolean).length;
+                const totalLinks = fbCount + ytCount + ttCount + xCount;
+                const hasMulti = fbCount > 1 || ytCount > 1;
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>
+                        <span class="lc-badge">${escapeHtml(ch)}</span>
+                        <div>
+                            <span class="lc-channel-link-count ${hasMulti ? 'multi' : ''}">
+                                ${totalLinks} ลิงก์ ${hasMulti ? '★ หลายเพจ' : ''}
+                            </span>
+                        </div>
+                    </td>
+                    <td>${buildMultiUrlBox(ch, 'facebook', 'https://www.facebook.com/watch/...', '+ เพิ่มลิงก์ Facebook')}</td>
+                    <td>${buildMultiUrlBox(ch, 'youtube', 'https://www.youtube.com/.../streams', '+ เพิ่มลิงก์ YouTube')}</td>
+                    <td>${buildMultiUrlBox(ch, 'tiktok', 'https://www.tiktok.com/@.../live', '+ เพิ่มลิงก์ TikTok')}</td>
+                    <td>${buildMultiUrlBox(ch, 'x', 'https://x.com/...', '+ เพิ่มลิงก์ X')}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        async function saveLinkConfigToSheet() {
+            if (document.activeElement && typeof document.activeElement.blur === 'function') {
+                document.activeElement.blur();
+            }
+
+            const btn = document.getElementById('lcSaveBtn');
+            const statusEl = document.getElementById('lcStatusText');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = '⏳ ตรวจสอบข้อมูลล่าสุด...';
+            }
+            if (statusEl) statusEl.textContent = '⏳ กำลังตรวจสอบข้อมูลล่าสุดจาก Google Sheet เพื่อป้องกันการเขียนทับ...';
+
+            try {
+                // 1. Fetch fresh config from Google Sheet to ensure we have any concurrent updates from other users
+                let latestSheetConfig = null;
+                try {
+                    latestSheetConfig = await fetchLatestLinkConfigDirect({ quick: true });
+                } catch (fetchErr) {
+                    console.warn('[Link Config] Could not fetch latest config before save, proceeding with local merge:', fetchErr);
+                }
+
+                // 2. 3-Way Smart Merge with conflict detection & link deduplication
+                let otherChangesCount = 0;
+                let mergeNotes = [];
+                if (latestSheetConfig && (latestSheetConfig.ok || latestSheetConfig.status === 'ok')) {
+                    const mergeResult = smartMergeLinkConfig(
+                        baseLinkConfig,
+                        latestSheetConfig,
+                        currentLinkConfig,
+                        ALL_19_CHANNELS
+                    );
+                    currentLinkConfig = mergeResult.mergedConfig;
+                    otherChangesCount = mergeResult.otherChangesCount;
+                    mergeNotes = mergeResult.mergeNotes;
+                    if (otherChangesCount > 0) {
+                        renderLinkConfigViews();
+                    }
+                }
+
+                if (otherChangesCount > 0) {
+                    if (statusEl) statusEl.textContent = `🔄 รวมข้อมูลใหม่จากผู้อื่นเรียบร้อยแล้ว (${otherChangesCount} จุด)... กำลังบันทึก`;
+                } else {
+                    if (statusEl) statusEl.textContent = '⏳ กำลังบันทึกข้อมูลลง Google Sheet...';
+                }
+                if (btn) btn.textContent = '⏳ กำลังบันทึก...';
+
+                // 3. Clean overrides (only keep ones with at least 1 URL) & deduplicate URLs
+                const cleanOverrides = (currentLinkConfig.broadcast_overrides || []).map(b => ({
+                    channel: b.channel,
+                    title: b.title,
+                    facebook: dedupeUrlList(b.facebook),
+                    youtube: dedupeUrlList(b.youtube),
+                    tiktok: dedupeUrlList(b.tiktok),
+                    x: dedupeUrlList(b.x)
+                })).filter(b => {
+                    const fbHas = b.facebook && b.facebook.length;
+                    const ytHas = b.youtube && b.youtube.length;
+                    const ttHas = b.tiktok && b.tiktok.length;
+                    const xHas = b.x && b.x.length;
+                    return fbHas || ytHas || ttHas || xHas;
+                });
+
+                // Ensure channel_links has all channels and deduplicate URLs
+                ALL_19_CHANNELS.forEach(ch => {
+                    const c = ensureChannelConfigExists(ch);
+                    c.facebook = dedupeUrlList(c.facebook);
+                    c.youtube = dedupeUrlList(c.youtube);
+                    c.tiktok = dedupeUrlList(c.tiktok);
+                    c.x = dedupeUrlList(c.x);
+                });
+
+                const payload = {
+                    action: 'save_link_config',
+                    channel_links: currentLinkConfig.channel_links,
+                    broadcast_overrides: cleanOverrides,
+                    base_channel_links: baseLinkConfig.channel_links,
+                    base_broadcast_overrides: baseLinkConfig.broadcast_overrides
+                };
+
+                const resp = await fetch(VIEW_STATS_API, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+                const result = await resp.json();
+                if (result.ok || result.status === 'ok' || result.success) {
+                    // Refresh current config directly from server response (or fetch fresh from sheet)
+                    if (result.channel_links) {
+                        currentLinkConfig.channel_links = result.channel_links;
+                        currentLinkConfig.broadcast_overrides = result.broadcast_overrides || [];
+                        if (result.channel_broadcasts && Object.keys(result.channel_broadcasts).length > 0) {
+                            currentLinkConfig.channel_broadcasts = result.channel_broadcasts;
+                        }
+                    } else {
+                        try {
+                            const fresh = await fetchLatestLinkConfigDirect({ quick: true });
+                            if (fresh && (fresh.ok || fresh.status === 'ok')) {
+                                currentLinkConfig.channel_links = fresh.channel_links || {};
+                                currentLinkConfig.broadcast_overrides = fresh.broadcast_overrides || [];
+                                if (fresh.channel_broadcasts && Object.keys(fresh.channel_broadcasts).length > 0) {
+                                    currentLinkConfig.channel_broadcasts = fresh.channel_broadcasts;
+                                }
+                            }
+                        } catch (e) {
+                            console.warn('[Link Config] Auto refresh post-save fallback:', e);
+                        }
+                    }
+
+                    baseLinkConfig = JSON.parse(JSON.stringify(currentLinkConfig));
+                    renderLinkConfigViews();
+
+                    const timeStr = new Date().toLocaleTimeString('th-TH');
+                    if (statusEl) statusEl.textContent = `✅ บันทึกและรีเฟรชข้อมูลล่าสุดสำเร็จ! (${timeStr})`;
+                    if (otherChangesCount > 0) {
+                        alert(`✅ บันทึกและอัปเดตข้อมูลล่าสุดบนหน้าจอสำเร็จแล้ว!\n\nℹ️ ระบบตรวจพบและรวมข้อมูลใหม่ที่ผู้อื่นบันทึกไว้ (${otherChangesCount} จุด) เข้าด้วยกันอัตโนมัติ โดยแสดงผลครบทุกคน:\n• ${mergeNotes.slice(0, 5).join('\n• ')}${mergeNotes.length > 5 ? `\n• และอื่นๆ อีก ${mergeNotes.length - 5} จุด` : ''}`);
+                    } else {
+                        alert('✅ บันทึกการตั้งค่าลิงก์ช่อง & รายการลง Google Sheet สำเร็จแล้ว และอัปเดตหน้าจอด้วยข้อมูลล่าสุดเรียบร้อย!');
+                    }
+                } else {
+                    throw new Error(result.error || 'Server error');
+                }
+            } catch (err) {
+                console.error('[Link Config Save Error]:', err);
+                if (statusEl) statusEl.textContent = `⚠️ บันทึกไม่สำเร็จ: ${err.message || err}`;
+                alert(`⚠️ ไม่สามารถบันทึกได้: ${err.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อ Google Sheet กรุณาลองใหม่อีกครั้ง'}`);
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = '💾 บันทึกลง Google Sheet';
+                }
+            }
+        }
+
         // Attach Event Listeners
         document.addEventListener('DOMContentLoaded', () => {
-            // Keyboard navigation for presentation mode
+            // Keyboard navigation for presentation mode and modal closing
             window.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    const lcModal = document.getElementById('linkConfigModal');
+                    if (lcModal && lcModal.style.display !== 'none') {
+                        closeLinkConfigModal();
+                        return;
+                    }
+                }
                 const overlay = document.getElementById('presentationOverlay');
                 if (!overlay || !overlay.classList.contains('active')) return;
 
