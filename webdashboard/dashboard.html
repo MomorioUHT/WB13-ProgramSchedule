@@ -2702,6 +2702,17 @@
                 </div>
             </header>
 
+            <!-- ตัวกรองหลัก (บนสุด): แสดงเฉพาะรายการที่มียอดวิว — มีผลกับทุกส่วน (การ์ด KPI / กราฟ / ตาราง) -->
+            <div class="vs-panel" id="vsGlobalTogglePanel" hidden
+                style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:14px;">
+                    <input type="checkbox" id="vsOnlyWithViews" checked onchange="vsRender()"
+                        style="accent-color:var(--accent-primary);width:16px;height:16px;">
+                    แสดงเฉพาะที่มียอดวิว
+                </label>
+                <span class="vs-hint">ตัดรายการที่ไม่มียอดวิวออกจากทุกส่วน — การ์ดสรุป กราฟ และตารางด้านล่าง</span>
+            </div>
+
             <!-- KPI number cards + ปุ่มตัวกรองเดียว (ปรับตามตัวกรอง) -->
             <div class="vs-panel" id="vsKpiPanel" hidden>
                 <div class="vs-kpi-bar">
@@ -2875,15 +2886,8 @@
             <!-- Results -->
             <div class="vs-panel">
                 <div class="vs-panel-head" style="flex-wrap:wrap;">
-                    <span class="vs-hint">ค้นหา/กรองชื่อรายการได้ที่ปุ่ม “ตัวกรอง” ด้านบน</span>
-                    <span style="display:flex;align-items:center;gap:14px;">
-                        <label class="vs-hint" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
-                            <input type="checkbox" id="vsOnlyWithViews" checked onchange="vsRender()"
-                                style="accent-color:var(--accent-primary);">
-                            แสดงเฉพาะที่มียอดวิว
-                        </label>
-                        <span class="vs-hint" id="vsResultCount">—</span>
-                    </span>
+                    <span class="vs-hint">ค้นหา/กรองชื่อรายการได้ที่ปุ่ม “ตัวกรอง” ด้านบน · เรียงตามยอดวิวมาก→น้อย (คลิกหัวคอลัมน์เพื่อเปลี่ยน)</span>
+                    <span class="vs-hint" id="vsResultCount">—</span>
                 </div>
                 <div id="vsLoading" class="vs-state">
                     <div class="spinner"></div>
@@ -4589,8 +4593,8 @@
         let vsCustomTo = null;
         let vsSelectedPlatforms = new Set(['facebook', 'youtube', 'x', 'tiktok']);
         let vsFetchTimeoutId = null;
-        let vsSortKey = 'air';   // 'title' | 'air' | 'platform' | 'views' | 'peak'
-        let vsSortDir = 'asc';   // 'asc' | 'desc'
+        let vsSortKey = 'views'; // 'title' | 'air' | 'platform' | 'views' | 'peak'
+        let vsSortDir = 'desc';  // 'asc' | 'desc' — ค่าเริ่มต้น: เรียงยอดวิวมาก→น้อย
 
         // ผลลัพธ์หลังกรอง+เรียง (เก็บไว้ทั้งชุด) แล้วแสดงตารางทีละหน้า — กันเบราว์เซอร์ค้างเมื่อ record เยอะ
         let vsFilteredEntries = [];
@@ -5111,6 +5115,9 @@
         function vsRender() {
             if (!vsLoaded) return;
 
+            const togglePanel = document.getElementById('vsGlobalTogglePanel');
+            if (togglePanel) togglePanel.hidden = false;
+
             const showDate = vsPreset !== 'today';
             const onlyWithViews = document.getElementById('vsOnlyWithViews').checked;
             const timeFrom = document.getElementById('vsTimeFrom').value;   // 'HH:mm' หรือ ''
@@ -5200,8 +5207,16 @@
             vsPage = 0;
             vsRenderTable();
 
+            // "แสดงเฉพาะที่มียอดวิว" ต้องมีผลกับการ์ด KPI ด้วย — ตัดแถวที่ไม่มี entry ยอดวิวออก
+            // (นับสถานี / รายการไม่ซ้ำ / หมวดหมู่ เฉพาะรายการที่มียอดวิวจริงบนแพลตฟอร์มที่เลือก)
+            let kpiRows = matchedRows;
+            if (onlyWithViews) {
+                const keep = new Set(entries.map(e => (e.channel || '') + VS_K + (e.title || '') + VS_K + (e.date || '')));
+                kpiRows = matchedRows.filter(r => keep.has((r.channel || '') + VS_K + (r.title || '') + VS_K + (r.date || '')));
+            }
+
             // การ์ด KPI + กราฟ — แยก try/catch แต่ละส่วน ไม่ให้ error ลามไปหยุดส่วนอื่น
-            try { vsRenderKpis(entries, matchedRows); }
+            try { vsRenderKpis(entries, kpiRows); }
             catch (err) { console.error('vsRenderKpis error:', err); }
             try { vsRenderCharts(entries); }
             catch (err) { console.error('vsRenderCharts error:', err); }
