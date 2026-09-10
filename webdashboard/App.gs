@@ -49,7 +49,7 @@ function doGet(e) {
     // [ADDED] Live View Stats dashboard endpoint — อ่านชีท 'View Stats' ทั้ง 15 คอลัมน์ (อ่านอย่างเดียว)
     // รองรับ JSONP: ส่ง ?callback=fnName เพื่อเลี่ยงปัญหา CORS เมื่อเปิดไฟล์แบบ file://
     if (e && e.parameter && (e.parameter.action === 'view_stats' || e.parameter.action === 'get_view_stats')) {
-      var vsPayload = buildViewStatsPayload_();
+      var vsPayload = buildViewStatsPayload_({ offset: e.parameter.offset, limit: e.parameter.limit });
       var vsCb = e.parameter.callback;
       if (vsCb) {
         return ContentService
@@ -123,7 +123,7 @@ function doPost(e) {
 
     // [ADDED] Live View Stats dashboard endpoint (อ่านอย่างเดียว)
     if (action === 'view_stats' || action === 'get_view_stats') {
-      return jsonOut(buildViewStatsPayload_());
+      return jsonOut(buildViewStatsPayload_({ offset: req.offset, limit: req.limit }));
     }
 
     // [ADDED] Link Config endpoints (อ่านและบันทึก Channel_Links และ Broadcast_Overrides)
@@ -866,26 +866,45 @@ function isYouTubeVideoUrl_(url) {
  *
  * เรียกใช้:  GET  <exec>?action=view_stats
  *           POST <exec>  body: {"action":"view_stats"}
+ *
+ * รองรับแบ่งหน้า (กันเกินลิมิตขนาด response เมื่อชีทมีหลายแสนแถว):
+ *   ?action=view_stats&offset=0&limit=25000   -> คืน 25000 แถวถัดจาก offset + has_more
+ *   ไม่ใส่ offset/limit = คืนทั้งหมด (พฤติกรรมเดิม, has_more=false)
  * ========================================================================== */
 
-function buildViewStatsPayload_() {
+function buildViewStatsPayload_(opts) {
+  opts = opts || {};
+  var offset = parseInt(opts.offset, 10);
+  if (!(offset > 0)) offset = 0;
+  var limit = parseInt(opts.limit, 10);
+  if (!(limit > 0)) limit = 0;   // 0 = ไม่จำกัด (คืนทั้งหมด)
+
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sh = ss.getSheetByName('View Stats');
     if (!sh) return { ok: false, error: 'sheet not found: View Stats' };
 
     var lastRow = sh.getLastRow();
-    if (lastRow < 2) {
-      return { ok: true, sheet: 'View Stats', total: 0, generated_at: new Date().toISOString(), data: [] };
+    var dataRows = Math.max(0, lastRow - 1);   // ไม่รวมหัวตารางแถว 1
+    var base = {
+      ok: true, sheet: 'View Stats', total: dataRows,
+      offset: offset, limit: limit, generated_at: new Date().toISOString()
+    };
+    if (dataRows === 0) {
+      base.has_more = false; base.data = []; return base;
     }
 
-    var values = sh.getRange(1, 1, lastRow, 17).getValues();
+    var startRow = 2 + offset;                 // แถวจริงในชีท
+    if (startRow > lastRow) {
+      base.has_more = false; base.data = []; return base;
+    }
+    var avail = lastRow - startRow + 1;
+    var count = (limit > 0) ? Math.min(limit, avail) : avail;
+
+    var values = sh.getRange(startRow, 1, count, 17).getValues();
     var out = [];
 
     for (var i = 0; i < values.length; i++) {
-      var rowNum = i + 1;
-      if (rowNum < 2) continue; // ข้ามแถวหัวตาราง
-
       var r = values[i];
       var date = normalizeDateStr_(r[0]);
       var channel = String(r[1] || '').trim();
@@ -897,7 +916,7 @@ function buildViewStatsPayload_() {
       if (channel === 'ช่อง' || title === 'ชื่อรายการ' || date === 'วันที่') continue;
 
       out.push({
-        row: rowNum,
+        row: startRow + i,
         date: date,
         channel: channel,
         title: title,
@@ -912,13 +931,10 @@ function buildViewStatsPayload_() {
       });
     }
 
-    return {
-      ok: true,
-      sheet: 'View Stats',
-      total: out.length,
-      generated_at: new Date().toISOString(),
-      data: out
-    };
+    base.has_more = (limit > 0) && (startRow + count - 1 < lastRow);
+    base.count = out.length;
+    base.data = out;
+    return base;
   } catch (err) {
     return { ok: false, error: String(err && err.stack ? err.stack : err) };
   }
