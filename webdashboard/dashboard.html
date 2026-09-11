@@ -1903,6 +1903,41 @@
             margin-bottom: 16px;
         }
 
+        /* แท็บสลับกราฟเส้นแนวโน้ม: "ผลรวมทุกรายการ" ↔ "แต่ละรายการที่เลือก" (แท็บหลังโผล่เมื่อมีการเลือกรายการ) */
+        .vs-chart-tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 12px;
+            border-bottom: 1px solid var(--border-color);
+            flex-wrap: wrap;
+        }
+
+        .vs-trend-tab {
+            appearance: none;
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            padding: 8px 4px 10px;
+            margin-bottom: -1px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .vs-trend-tab:hover {
+            color: var(--text-primary);
+        }
+
+        .vs-trend-tab.active {
+            color: var(--accent-primary);
+            border-bottom-color: var(--accent-primary);
+        }
+
         /* ---- แถบ KPI + ปุ่มตัวกรองเดียว ---- */
         .vs-kpi-bar {
             display: flex;
@@ -2889,9 +2924,16 @@
                     <span class="vs-hint" id="vsChartsHint">—</span>
                 </div>
                 <div class="vs-chart-box vs-chart-wide" id="vsDailyTrendBox" hidden>
+                    <div class="vs-chart-tabs" id="vsTrendTabs">
+                        <button type="button" class="vs-trend-tab active" data-trend-tab="channel"
+                            onclick="vsSwitchTrendTab('channel')">ยอดวิวรวมรายชั่วโมง แยกตามสถานี (ผลรวมทุกรายการ)</button>
+                        <button type="button" class="vs-trend-tab" data-trend-tab="program" id="vsTrendTabProgram"
+                            onclick="vsSwitchTrendTab('program')" hidden>ยอดวิวของแต่ละรายการที่เลือก</button>
+                    </div>
                     <div class="vs-chart-title" id="vsTrendTitle">ยอดวิวรวมรายชั่วโมง แยกตามสถานี (ผลรวมทุกรายการ)</div>
                     <div class="vs-chart-canvas-wrap" style="height:420px;">
                         <canvas id="vsDailyTrendChart"></canvas>
+                        <canvas id="vsProgramTrendChart" hidden></canvas>
                     </div>
                 </div>
                 <div class="vs-charts-row">
@@ -4655,6 +4697,10 @@
         // ตัวกรอง 'รายการ' (ชื่อรายการ, multi-select ผ่าน dropdown + ค้นหา) — ว่าง = ไม่กรอง (แสดงทุกรายการ)
         let vsSelectedTitles = new Set();
         let vsAllTitles = [];
+        // title -> Set(channel) ของรายการนั้น — สำหรับต่อชื่อสถานีท้ายชื่อรายการใน dropdown "เลือกรายการ" เท่านั้น
+        // (ให้แยกรายการชื่อซ้ำกันคนละช่องออกจากกัน) ไม่เกี่ยวกับตัวกรองจริง — filter ยังใช้ชื่อรายการล้วน ๆ เหมือนเดิม
+        // อัปเดตเป็น side effect ทุกครั้งที่เรียก vsAvailableTitles()
+        let vsTitleChannelMap = new Map();
         const VS_K ='\u0001';   // ตัวคั่นคีย์ Map (อักขระที่ไม่มีทางอยู่ในข้อมูลจริง) — เร็วกว่า JSON.stringify
 
         // ตัวกรอง 'หมวดหมู่' (multi-select) — ใช้ค่าดิบจากคอลัมน์ D "หมวดหมู่" ของชีท 'View Stats'
@@ -4699,6 +4745,15 @@
         let vsChannelShareChartInstance = null;
         let vsCategoryShareChartInstance = null;
         let vsDailyTrendChartInstance = null;
+        let vsProgramTrendChartInstance = null;
+
+        // แท็บกราฟเส้นแนวโน้ม (ในกล่อง #vsDailyTrendBox): 'channel' = ผลรวมทุกรายการ แยกตามสถานี (ค่าเริ่มต้น),
+        // 'program' = แยกเป็นเส้นต่อรายการที่เลือกไว้ใน dropdown "เลือกรายการ" (โผล่เฉพาะตอนเลือกรายการอย่างน้อย 1)
+        let vsTrendTab = 'channel';
+        // แคช `viewed` ล่าสุดจาก vsRenderCharts() ไว้ให้ vsSwitchTrendTab() วาดกราฟใหม่ตอนสลับแท็บ
+        // โดยไม่ต้องรอ vsRender() รอบใหม่ (ข้อมูลชุดเดียวกัน แค่สลับมุมมอง)
+        let vsLastViewedForTrend = [];
+        let vsLastChartAnimForTrend = undefined;
 
         // จานสีสำหรับกราฟ (แต่ละสำนักข่าวได้สีของตัวเอง — ใช้ร่วมกันทั้งกราฟแท่งและกราฟวงกลม)
         const VS_CHART_PALETTE = [
@@ -4735,6 +4790,15 @@
             // สำรอง: hash ชื่อช่องเป็นดัชนีสี
             let h = 0;
             for (let i = 0; i < String(ch).length; i++) h = (h * 31 + ch.charCodeAt(i)) >>> 0;
+            return VS_CHART_PALETTE[h % VS_CHART_PALETTE.length];
+        }
+
+        // สีจากพาเลตแบบ deterministic ตาม string ใด ๆ (ไม่ผูกกับ map เฉพาะของช่อง/หมวดหมู่แบบ vsChannelColor/vsCatColor)
+        // ใช้กับกราฟที่กลุ่มด้วยคีย์อื่น เช่น "ช่อง+ชื่อรายการ" ในแท็บ "ยอดวิวของแต่ละรายการที่เลือก"
+        function vsHashColor(key) {
+            let h = 0;
+            const s = String(key);
+            for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
             return VS_CHART_PALETTE[h % VS_CHART_PALETTE.length];
         }
 
@@ -4918,13 +4982,28 @@
             const s = new Set();
             const restrict = vsSelectedChannels.size > 0;
             const onlyWithViews = !!(document.getElementById('vsOnlyWithViews') || {}).checked;
+            const chMap = new Map();   // title -> Set(channel), เก็บไว้ที่ vsTitleChannelMap สำหรับ label ใน dropdown
             vsRawRows.forEach(r => {
                 if (restrict && !vsSelectedChannels.has(r.channel)) return;
                 if (onlyWithViews && !vsRowHasView(r)) return;
                 const t = String(r.title || '').trim();
-                if (t) s.add(t);
+                if (!t) return;
+                s.add(t);
+                if (r.channel) {
+                    if (!chMap.has(t)) chMap.set(t, new Set());
+                    chMap.get(t).add(r.channel);
+                }
             });
+            vsTitleChannelMap = chMap;
             return Array.from(s).sort((a, b) => a.localeCompare(b, 'th'));
+        }
+
+        // label แสดงผลใน dropdown "เลือกรายการ" เท่านั้น — ต่อชื่อสถานีท้ายชื่อรายการ (เช่น "สถานีประชาชน - Thai PBS")
+        // ช่วยแยกรายการชื่อซ้ำกันคนละช่องออกจากกัน ไม่กระทบตัวกรองจริง (ยังกรองด้วยชื่อรายการล้วน ๆ เหมือนเดิม)
+        function vsProgramDisplayLabel(t) {
+            const chans = vsTitleChannelMap.get(t);
+            if (!chans || chans.size === 0) return t;
+            return `${t} - ${Array.from(chans).sort((a, b) => a.localeCompare(b, 'th')).join(', ')}`;
         }
 
         // เรียกหลังทุกครั้งที่ vsSelectedChannels / vsSelectedTitles เปลี่ยน — prune ตัวเลือกที่ไม่มีอยู่จริง + วาดใหม่ทั้งคู่
@@ -5470,11 +5549,20 @@
             vsUpdateProgramLabel();
         }
 
+        // normalize สำหรับค้นหาชื่อรายการ: lowercase + ตัด whitespace ทั้งหมดออก (ไม่ใช่แค่ trim หัวท้าย)
+        // กัน false negative จากช่องว่างเกิน/ขาดหรือตัวพิมพ์เล็กใหญ่ไม่ตรงกัน เช่น "ThaiPBS" ก็ยังเจอ "Thai PBS"
+        function vsNormSearch(s) {
+            return String(s == null ? '' : s).toLowerCase().replace(/\s+/g, '');
+        }
+
         function vsRenderProgramOptions() {
             const list = document.getElementById('vsProgList');
             if (!list) return;
-            const q = String((document.getElementById('vsProgSearch') || {}).value || '').trim().toLowerCase();
-            const shown = q ? vsAllTitles.filter(t => t.toLowerCase().includes(q)) : vsAllTitles;
+            const q = vsNormSearch((document.getElementById('vsProgSearch') || {}).value);
+            // ค้นด้วย display label (ชื่อรายการ + ชื่อช่องต่อท้าย) ไม่ใช่แค่ชื่อรายการล้วน ๆ — พิมพ์ชื่อช่อง
+            // (เช่น "Thai PBS") เจอรายการของช่องนั้นด้วย ถึงจะไม่ตรงกับชื่อรายการเป๊ะก็ตาม ทั้งคำค้นและ label
+            // ถูก normalize (lower + ตัด whitespace) ก่อนเทียบทั้งคู่
+            const shown = q ? vsAllTitles.filter(t => vsNormSearch(vsProgramDisplayLabel(t)).includes(q)) : vsAllTitles;
 
             const cnt = document.getElementById('vsProgCount');
             if (cnt) cnt.textContent = vsSelectedTitles.size
@@ -5502,7 +5590,7 @@
                     vsRender();
                 };
                 const span = document.createElement('span');
-                span.textContent = t;
+                span.textContent = vsProgramDisplayLabel(t);   // แสดงต่อชื่อสถานี — filter (ด้านบน) ยังใช้ t ล้วน ๆ
                 lab.appendChild(cb);
                 lab.appendChild(span);
                 list.appendChild(lab);
@@ -5514,12 +5602,21 @@
             if (!el) return;
             const n = vsSelectedTitles.size;
             if (n === 0 || n === vsAllTitles.length) el.textContent = 'ทุกรายการ';
-            else if (n === 1) el.textContent = [...vsSelectedTitles][0];
+            else if (n === 1) el.textContent = vsProgramDisplayLabel([...vsSelectedTitles][0]);
             else el.textContent = `เลือก ${n} รายการ`;
         }
 
+        // "เลือกทั้งหมด"/"ล้าง" ทั้งคู่เคารพคำค้นที่พิมพ์อยู่: ถ้าช่องค้นหาไม่ว่าง จะเลือก/ล้างเฉพาะรายการที่ตรงกับ
+        // คำค้นตอนนี้ (เหมือน checkbox ที่โผล่อยู่บนจอ) ไม่ใช่ทุกรายการทั้งหมด — ถ้าช่องค้นหาว่าง (หรือมีแต่ space)
+        // matching จะเท่ากับ vsAllTitles ทั้งชุดพอดี = เลือกทั้งหมด/ล้างทั้งหมดเหมือนเดิม
         function vsSetAllPrograms(on) {
-            vsSelectedTitles = on ? new Set(vsAllTitles) : new Set();
+            const q = vsNormSearch((document.getElementById('vsProgSearch') || {}).value);
+            const matching = q ? vsAllTitles.filter(t => vsNormSearch(vsProgramDisplayLabel(t)).includes(q)) : vsAllTitles;
+            if (on) {
+                matching.forEach(t => vsSelectedTitles.add(t));
+            } else {
+                matching.forEach(t => vsSelectedTitles.delete(t));
+            }
             vsSyncChannelTitleFilters();
             vsRender();
         }
@@ -5737,6 +5834,52 @@
             return { byCh, buckets: Array.from(bucketSet).sort(), res, resLabel };
         }
 
+        /* ---- แกนของกราฟเส้น trend แบบ "แยกตามรายการที่เลือก" (แท็บ "ยอดวิวของแต่ละรายการที่เลือก") ----
+           เหมือน vsBuildTrendByChannelAll ทุกอย่าง (บวก e.views ของทุก entry ไม่ยุบเป็นพีคสูงสุด) ต่างแค่กลุ่มด้วย
+           "ช่อง+ชื่อรายการ" แทน "ช่อง" ล้วน ๆ — ใช้กับ `viewed` ที่ผ่านตัวกรอง "เลือกรายการ" มาแล้ว (จาก vsRender())
+           คืน { byProg, labelOf, buckets, res, resLabel } — key ของ byProg/labelOf คือ 'channel+title' */
+        function vsBuildTrendByTitle(viewed) {
+            const daySet = new Set();
+            viewed.forEach(e => { const ds = vsDateSortable(e.date); if (ds !== '9999-99-99') daySet.add(ds); });
+            const dayCount = daySet.size;
+            const res = dayCount <= 21 ? 'hour' : (dayCount <= 370 ? 'day' : 'week');
+            const resLabel = res === 'hour' ? 'รายชั่วโมง' : (res === 'day' ? 'รายวัน' : 'รายสัปดาห์');
+            const DAY_MS = 86400000;
+
+            const bucketKeyOf = e => {
+                const ds = vsDateSortable(e.date);
+                if (res === 'hour') {
+                    const hh = vsHourOf(e.peakTime || e.scheduleTime);
+                    return ds + ' ' + (hh == null ? '00' : hh);
+                }
+                if (res === 'day' || ds === '9999-99-99') return ds;
+                const pt = ds.split('-');
+                const t = Date.UTC(+pt[0], +pt[1] - 1, +pt[2]);
+                const w = new Date(t - (Math.floor(t / DAY_MS) % 7) * DAY_MS);
+                return w.getUTCFullYear() + '-' + String(w.getUTCMonth() + 1).padStart(2, '0') + '-' + String(w.getUTCDate()).padStart(2, '0');
+            };
+
+            const byProg = new Map();      // 'channel+title' -> Map(bucketKey -> sum)
+            const labelOf = new Map();     // 'channel+title' -> "ชื่อรายการ — ช่อง" (สำหรับ legend/tooltip)
+            const channelOf = new Map();   // 'channel+title' -> ช่องดิบ (ไว้เช็ค isThaiPbs() ตอนเลือกสีเส้น)
+            const bucketSet = new Set();
+            viewed.forEach(e => {
+                if (e.views == null || !(e.views > 0)) return;
+                const bk = bucketKeyOf(e);
+                bucketSet.add(bk);
+                const key = (e.channel || '') + VS_K + (e.title || '');
+                if (!byProg.has(key)) {
+                    byProg.set(key, new Map());
+                    labelOf.set(key, `${e.title || 'ไม่ระบุชื่อ'} — ${e.channel || 'ไม่ระบุช่อง'}`);
+                    channelOf.set(key, e.channel || '');
+                }
+                const m = byProg.get(key);
+                m.set(bk, (m.get(bk) || 0) + e.views);
+            });
+
+            return { byProg, labelOf, channelOf, buckets: Array.from(bucketSet).sort(), res, resLabel };
+        }
+
         /* ---- กราฟหน้า Live View Stats (วางเหนือตารางข้อมูลดิบ) ----
            รับ entries ชุดเดียวกับตาราง (ผ่านตัวกรอง ช่อง / รายการ / ช่วงวัน / ช่วงเวลาออกอากาศ /
            แพลตฟอร์ม / หมวดหมู่ แล้ว) จากนั้นรวมยอดวิวเป็นราย "รายการ" โดยเอาค่าพีคสูงสุด
@@ -5778,6 +5921,7 @@
             if (vsChannelShareChartInstance) { vsChannelShareChartInstance.destroy(); vsChannelShareChartInstance = null; }
             if (vsCategoryShareChartInstance) { vsCategoryShareChartInstance.destroy(); vsCategoryShareChartInstance = null; }
             if (vsDailyTrendChartInstance) { vsDailyTrendChartInstance.destroy(); vsDailyTrendChartInstance = null; }
+            if (vsProgramTrendChartInstance) { vsProgramTrendChartInstance.destroy(); vsProgramTrendChartInstance = null; }
 
             const trendBox = document.getElementById('vsDailyTrendBox');
 
@@ -6068,90 +6212,221 @@
                 plugins: [vsPieLabelPlugin]
             });
 
-            /* ---------- กราฟเส้น: ยอดวิวรวม แยกตามสถานี (บรรทัดของตัวเอง เต็มความกว้าง บนสุด) ----------
-               - รวม "ทุกรายการ ทุกแพลตฟอร์ม ทุกครั้งที่ออกอากาศ" (ไม่ยุบเป็นพีคสูงสุดแบบการ์ด KPI)
-                 → ใช้ vsBuildTrendByChannelAll ไม่ใช่ `trend` ที่ใช้ร่วมกับการ์ด KPI
-               - ความละเอียดปรับอัตโนมัติตามจำนวนวันที่มีข้อมูล: <=21 วัน = รายชั่วโมง, <=370 = รายวัน, มากกว่านั้น = รายสัปดาห์
-                 (กันจุดบนกราฟระเบิดเป็นหลักหมื่นเมื่อข้อมูลยาวหลายปี)
-               - แกน X = เฉพาะถังเวลาที่ "มีข้อมูล" ; เส้นที่ขาดช่วงลากข้าม (spanGaps) */
-            {
-                // กราฟเส้นนี้ = ผลรวมยอดวิวของ "ทุกรายการ" (แกนของตัวเอง ไม่ใช่ `trend` ของการ์ด KPI)
-                const { byCh, buckets, res, resLabel } = vsBuildTrendByChannelAll(viewed);
-                const fmtBucket = bk => {
-                    const sp = bk.split(' ');
-                    if (sp[0] === '9999-99-99') return res === 'hour' ? `ไม่ระบุวัน ${sp[1]}:00` : 'ไม่ระบุวัน';
-                    const d = (sp[0] || '').split('-');
-                    if (d.length !== 3) return bk;
-                    return res === 'hour' ? `${d[2]}/${d[1]} ${sp[1]}:00` : `${d[2]}/${d[1]}`;
-                };
+            /* ---------- กราฟเส้นแนวโน้ม (บรรทัดของตัวเอง เต็มความกว้าง บนสุด) — 2 แท็บ ----------
+               แคช viewed/vsChartAnim ไว้ให้ vsSwitchTrendTab() วาดใหม่ตอนสลับแท็บได้โดยไม่ต้องรอ vsRender() รอบใหม่
+               แล้วให้ vsRenderTrendTab() ตัดสินใจว่าจะวาดแท็บไหน (ขึ้นกับ vsTrendTab + มีเลือก "รายการ" อยู่หรือไม่) */
+            vsLastViewedForTrend = viewed;
+            vsLastChartAnimForTrend = vsChartAnim;
+            vsRenderTrendTab();
+        }
 
-                const trendTitleEl = document.getElementById('vsTrendTitle');
-                if (trendTitleEl) trendTitleEl.textContent =
-                    `ยอดวิวรวม${resLabel} แยกตามสถานี (ผลรวมทุกรายการ)`;
+        // แปลง bucketKey ('YYYY-MM-DD' หรือ 'YYYY-MM-DD HH') เป็น label แกน X — ใช้ร่วมกันทั้ง 2 แท็บ
+        function vsFmtTrendBucket(bk, res) {
+            const sp = bk.split(' ');
+            if (sp[0] === '9999-99-99') return res === 'hour' ? `ไม่ระบุวัน ${sp[1]}:00` : 'ไม่ระบุวัน';
+            const d = (sp[0] || '').split('-');
+            if (d.length !== 3) return bk;
+            return res === 'hour' ? `${d[2]}/${d[1]} ${sp[1]}:00` : `${d[2]}/${d[1]}`;
+        }
 
-                if (buckets.length === 0) {
-                    if (trendBox) trendBox.hidden = true;
-                } else {
-                    if (trendBox) trendBox.hidden = false;
-                    const manyPts = buckets.length > 120;
-                    const dsList = Array.from(byCh.entries())
-                        .sort((a, b) => {
-                            const sum = m => { let s = 0; m.forEach(v => s += v); return s; };
-                            return sum(b[1]) - sum(a[1]);
-                        })
-                        .map(([ch, m]) => {
-                            const col = vsChannelColor(ch);
-                            return {
-                                label: ch,
-                                data: buckets.map(bk => (m.has(bk) ? m.get(bk) : null)),
-                                borderColor: col,
-                                backgroundColor: col,
-                                borderWidth: isThaiPbs(ch) ? 3 : 1.75,
-                                pointRadius: manyPts ? 0 : 2,
-                                pointHoverRadius: 5,
-                                pointHitRadius: 6,
-                                tension: 0.25,
-                                spanGaps: true
-                            };
-                        });
-
-                    vsDailyTrendChartInstance = new Chart(document.getElementById('vsDailyTrendChart'), {
-                        type: 'line',
-                        data: { labels: buckets.map(fmtBucket), datasets: dsList },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            animation: vsChartAnim,
-                            interaction: { mode: 'nearest', axis: 'x', intersect: false },
-                            scales: {
-                                x: {
-                                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                                    ticks: { color: '#9ca3af', maxRotation: 0, autoSkip: true, autoSkipPadding: 16 }
-                                },
-                                y: {
-                                    beginAtZero: true,
-                                    grace: '8%',
-                                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                                    ticks: { color: '#9ca3af', callback: v => Number(v).toLocaleString('en-US') }
-                                }
-                            },
-                            plugins: {
-                                legend: {
-                                    position: 'bottom',
-                                    labels: { color: '#9ca3af', font: { size: 10 }, boxWidth: 12, padding: 8, usePointStyle: true }
-                                },
-                                tooltip: {
-                                    callbacks: {
-                                        label: ctx => ctx.parsed.y == null
-                                            ? null
-                                            : ` ${ctx.dataset.label}: ${Number(ctx.parsed.y).toLocaleString('en-US')} วิว`
-                                    }
-                                }
-                            }
-                        }
+        // ---- plugin: ตัวเลขบนจุดกราฟเส้น trend (ทั้ง 2 แท็บ) — โชว์ค่าตรง ๆ โดยไม่ต้อง hover ----
+        // วาดเฉพาะจุดที่ตัว dataset เปิด pointRadius ไว้จริง (เช่นเดียวกับที่ชาร์ตปิด pointRadius เองอยู่แล้ว
+        // เมื่อ buckets > 120 กันจุดระเบิด) เพื่อไม่ให้ตัวเลขทับกันจนอ่านไม่ออกตอนข้อมูลถี่มาก
+        const vsLineValuePlugin = {
+            id: 'vsLineValue',
+            afterDatasetsDraw(chart) {
+                const { ctx, chartArea } = chart;
+                ctx.save();
+                ctx.font = '700 10px "Plus Jakarta Sans", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                chart.data.datasets.forEach((ds, dsIndex) => {
+                    if (!chart.isDatasetVisible(dsIndex) || !ds.pointRadius) return;
+                    const meta = chart.getDatasetMeta(dsIndex);
+                    if (!meta) return;
+                    meta.data.forEach((point, i) => {
+                        const val = ds.data[i];
+                        if (val == null) return;
+                        const y = Math.max(point.y - 6, chartArea.top + 10);   // กันข้อความล้นขอบบนกราฟ
+                        ctx.fillStyle = ds.borderColor || '#e5e7eb';
+                        ctx.fillText(Number(val).toLocaleString('en-US'), point.x, y);
                     });
-                }
+                });
+                ctx.restore();
             }
+        };
+
+        // ตัวเลือกกราฟเส้นร่วมกันทั้ง 2 แท็บ (แกน/legend/tooltip) — ต่างกันแค่ dataset
+        function vsTrendChartOptions(vsChartAnim) {
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: vsChartAnim,
+                interaction: { mode: 'nearest', axis: 'x', intersect: false },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: { color: '#9ca3af', maxRotation: 0, autoSkip: true, autoSkipPadding: 16 }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grace: '8%',
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: { color: '#9ca3af', callback: v => Number(v).toLocaleString('en-US') }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: '#9ca3af', font: { size: 10 }, boxWidth: 12, padding: 8, usePointStyle: true }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => ctx.parsed.y == null
+                                ? null
+                                : ` ${ctx.dataset.label}: ${Number(ctx.parsed.y).toLocaleString('en-US')} วิว`
+                        }
+                    }
+                }
+            };
+        }
+
+        /* ---------- แท็บ 1: "ยอดวิวรวมรายชั่วโมง แยกตามสถานี (ผลรวมทุกรายการ)" ----------
+           - รวม "ทุกรายการ ทุกแพลตฟอร์ม ทุกครั้งที่ออกอากาศ" (ไม่ยุบเป็นพีคสูงสุดแบบการ์ด KPI)
+             → ใช้ vsBuildTrendByChannelAll ไม่ใช่ `trend` ที่ใช้ร่วมกับการ์ด KPI
+           - ความละเอียดปรับอัตโนมัติตามจำนวนวันที่มีข้อมูล: <=21 วัน = รายชั่วโมง, <=370 = รายวัน, มากกว่านั้น = รายสัปดาห์
+           - แกน X = เฉพาะถังเวลาที่ "มีข้อมูล" ; เส้นที่ขาดช่วงลากข้าม (spanGaps) */
+        function vsRenderChannelTrendChart(viewed, vsChartAnim) {
+            const trendBox = document.getElementById('vsDailyTrendBox');
+            const { byCh, buckets, res, resLabel } = vsBuildTrendByChannelAll(viewed);
+
+            const trendTitleEl = document.getElementById('vsTrendTitle');
+            if (trendTitleEl) trendTitleEl.textContent = `ยอดวิวรวม${resLabel} แยกตามสถานี (ผลรวมทุกรายการ)`;
+
+            if (buckets.length === 0) {
+                if (trendBox) trendBox.hidden = true;
+                return;
+            }
+            if (trendBox) trendBox.hidden = false;
+            const manyPts = buckets.length > 120;
+            const dsList = Array.from(byCh.entries())
+                .sort((a, b) => {
+                    const sum = m => { let s = 0; m.forEach(v => s += v); return s; };
+                    return sum(b[1]) - sum(a[1]);
+                })
+                .map(([ch, m]) => {
+                    const col = vsChannelColor(ch);
+                    return {
+                        label: ch,
+                        data: buckets.map(bk => (m.has(bk) ? m.get(bk) : null)),
+                        borderColor: col,
+                        backgroundColor: col,
+                        borderWidth: isThaiPbs(ch) ? 3 : 1.75,
+                        pointRadius: manyPts ? 0 : 2,
+                        pointHoverRadius: 5,
+                        pointHitRadius: 6,
+                        tension: 0.25,
+                        spanGaps: true
+                    };
+                });
+
+            vsDailyTrendChartInstance = new Chart(document.getElementById('vsDailyTrendChart'), {
+                type: 'line',
+                data: { labels: buckets.map(bk => vsFmtTrendBucket(bk, res)), datasets: dsList },
+                options: vsTrendChartOptions(vsChartAnim),
+                plugins: [vsLineValuePlugin]
+            });
+        }
+
+        /* ---------- แท็บ 2: "ยอดวิวของแต่ละรายการที่เลือก" ----------
+           เหมือนแท็บ 1 ทุกอย่าง ต่างแค่กลุ่มเป็นเส้นต่อ "รายการ" (ช่อง+ชื่อ) แทนเส้นต่อ "สถานี" — โผล่เฉพาะตอน
+           เลือกรายการไว้ใน dropdown "เลือกรายการ" อย่างน้อย 1 รายการ (viewed ที่ส่งเข้ามาผ่านตัวกรองนี้มาแล้ว) */
+        function vsRenderProgramTrendChart(viewed, vsChartAnim) {
+            const trendBox = document.getElementById('vsDailyTrendBox');
+            const { byProg, labelOf, channelOf, buckets, res, resLabel } = vsBuildTrendByTitle(viewed);
+
+            const trendTitleEl = document.getElementById('vsTrendTitle');
+            if (trendTitleEl) trendTitleEl.textContent = `ยอดวิวของแต่ละรายการที่เลือก (${resLabel})`;
+
+            if (buckets.length === 0) {
+                if (trendBox) trendBox.hidden = true;
+                return;
+            }
+            if (trendBox) trendBox.hidden = false;
+            const manyPts = buckets.length > 120;
+
+            // รายการของ ThaiPBS = สีส้มคงที่ **เฉพาะตอนมีช่องอื่นปนอยู่ด้วย** (เพื่อให้แยกออกจากช่องอื่นได้ชัด
+            // เหมือนกราฟแยกตามสถานี) — ถ้าเลือกมาแต่รายการของ ThaiPBS ล้วน ๆ (ช่องเดียว) ให้แต่ละรายการมีสีของตัวเอง
+            // ตามปกติแทน ไม่งั้นทุกเส้นจะกลายเป็นสีส้มเหมือนกันหมด แยกรายการไม่ออก
+            const channelsInvolved = new Set(Array.from(byProg.keys()).map(k => channelOf.get(k) || ''));
+            const forceThaiPbsOrange = channelsInvolved.size > 1;
+
+            const dsList = Array.from(byProg.entries())
+                .sort((a, b) => {
+                    const sum = m => { let s = 0; m.forEach(v => s += v); return s; };
+                    return sum(b[1]) - sum(a[1]);
+                })
+                .map(([key, m]) => {
+                    const ch = channelOf.get(key) || '';
+                    const forceOrange = forceThaiPbsOrange && isThaiPbs(ch);
+                    const col = forceOrange ? VS_THAIPBS_COLOR : vsHashColor(key);
+                    return {
+                        label: labelOf.get(key) || key,
+                        data: buckets.map(bk => (m.has(bk) ? m.get(bk) : null)),
+                        borderColor: col,
+                        backgroundColor: col,
+                        borderWidth: forceOrange ? 3 : 1.75,
+                        pointRadius: manyPts ? 0 : 2,
+                        pointHoverRadius: 5,
+                        pointHitRadius: 6,
+                        tension: 0.25,
+                        spanGaps: true
+                    };
+                });
+
+            vsProgramTrendChartInstance = new Chart(document.getElementById('vsProgramTrendChart'), {
+                type: 'line',
+                data: { labels: buckets.map(bk => vsFmtTrendBucket(bk, res)), datasets: dsList },
+                options: vsTrendChartOptions(vsChartAnim),
+                plugins: [vsLineValuePlugin]
+            });
+        }
+
+        // ตัดสินใจว่าจะวาดแท็บไหนในกล่องกราฟเส้นแนวโน้ม + โชว์/ซ่อนปุ่มแท็บ "ยอดวิวของแต่ละรายการที่เลือก"
+        // (โผล่เฉพาะตอนเลือก "รายการ" ไว้อย่างน้อย 1) เรียกทั้งจาก vsRenderCharts() (ข้อมูลเปลี่ยน) และ
+        // vsSwitchTrendTab() (ผู้ใช้คลิกสลับแท็บ — ใช้ข้อมูลชุดเดิมจาก vsLastViewedForTrend)
+        function vsRenderTrendTab() {
+            const tabProgramBtn = document.getElementById('vsTrendTabProgram');
+            const hasSelectedTitles = vsSelectedTitles.size > 0;
+            if (tabProgramBtn) tabProgramBtn.hidden = !hasSelectedTitles;
+
+            // เลือกรายการหมด (กลับไป "ทุกรายการ") ระหว่างอยู่แท็บ "แต่ละรายการ" — ไม่มีข้อมูลให้แท็บนี้แสดงแล้ว
+            // สลับกลับแท็บ "ผลรวมทุกรายการ" ให้อัตโนมัติ
+            if (!hasSelectedTitles && vsTrendTab === 'program') vsTrendTab = 'channel';
+
+            document.querySelectorAll('#vsTrendTabs .vs-trend-tab').forEach(b => {
+                b.classList.toggle('active', b.dataset.trendTab === vsTrendTab);
+            });
+
+            const channelCanvas = document.getElementById('vsDailyTrendChart');
+            const programCanvas = document.getElementById('vsProgramTrendChart');
+            if (channelCanvas) channelCanvas.hidden = vsTrendTab !== 'channel';
+            if (programCanvas) programCanvas.hidden = vsTrendTab !== 'program';
+
+            if (vsDailyTrendChartInstance) { vsDailyTrendChartInstance.destroy(); vsDailyTrendChartInstance = null; }
+            if (vsProgramTrendChartInstance) { vsProgramTrendChartInstance.destroy(); vsProgramTrendChartInstance = null; }
+
+            if (vsTrendTab === 'program') {
+                vsRenderProgramTrendChart(vsLastViewedForTrend, vsLastChartAnimForTrend);
+            } else {
+                vsRenderChannelTrendChart(vsLastViewedForTrend, vsLastChartAnimForTrend);
+            }
+        }
+
+        // ผู้ใช้คลิกแท็บ ('channel' หรือ 'program') — วาดกราฟของแท็บนั้นใหม่ด้วยข้อมูลชุดล่าสุด (ไม่ต้องรอ filter เปลี่ยน)
+        function vsSwitchTrendTab(tab) {
+            vsTrendTab = tab;
+            vsRenderTrendTab();
         }
 
         // 'HH:mm[:ss]' / 'H:mm' -> '00'..'23' ; ค่าที่ไม่ใช่เวลา -> null
