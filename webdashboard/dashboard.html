@@ -1631,6 +1631,32 @@
             border-color: var(--border-focus);
         }
 
+        /* เวลาออกอากาศ: ใช้ <select> HH/MM แทน <input type="time"> ของ browser —
+           เพราะ input[type=time] แสดง 12 ชม. (AM/PM) ตามโลแคลเครื่อง/เบราว์เซอร์ผู้ใช้เสมอ ไม่มีทางบังคับเป็น 24 ชม.
+           ได้ตรง ๆ ด้วย CSS/HTML (แม้แต่ lang="en-GB" ก็ใช้ไม่ได้กับ Chrome รุ่นใหม่) select ตัวเลข 00-23/00-59
+           การันตี 24 ชม.เสมอทุกเครื่อง และกดเลือกง่ายกว่าปั่น spinner ของ native time picker ด้วย */
+        .vs-time-select {
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-radius: var(--radius-sm);
+            padding: 7px 6px;
+            font-family: inherit;
+            font-size: 12px;
+            font-variant-numeric: tabular-nums;
+            cursor: pointer;
+        }
+
+        .vs-time-select:focus {
+            outline: none;
+            border-color: var(--border-focus);
+        }
+
+        .vs-time-colon {
+            font-weight: 700;
+            color: var(--text-secondary);
+        }
+
         .vs-table-wrap {
             overflow-x: auto;
             border-radius: var(--radius-md);
@@ -1952,6 +1978,15 @@
         }
 
         /* ---- ลิ้นชักตัวกรอง (โผล่เมื่อกดปุ่ม) ---- */
+        /* .vs-panel มี backdrop-filter → แต่ละใบเป็น stacking context แยกกัน เรียงทับกันตามลำดับ DOM
+           (z-index:auto ไม่ช่วย). #vsFilterPanel อยู่ก่อน #vsChartsPanel ในตัว HTML แต่ dropdown "รายการ"
+           (.vs-prog-dd-panel) ที่ลอยล้นออกมาด้านล่างดันโดน #vsChartsPanel (มาทีหลัง = paint ทับ) บังอยู่
+           แก้ด้วยการยก stacking context ของลิ้นชักทั้งใบให้สูงกว่า panel อื่น ๆ อย่างชัดเจน */
+        .vs-filter-drawer {
+            position: relative;
+            z-index: 30;
+        }
+
         .vs-filter-drawer .vs-filter-group + .vs-filter-group {
             margin-top: 18px;
             padding-top: 16px;
@@ -2706,7 +2741,7 @@
             <div class="vs-panel" id="vsGlobalTogglePanel" hidden
                 style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
                 <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:14px;">
-                    <input type="checkbox" id="vsOnlyWithViews" checked onchange="vsRender()"
+                    <input type="checkbox" id="vsOnlyWithViews" checked onchange="vsSyncChannelTitleFilters(); vsRender()"
                         style="accent-color:var(--accent-primary);width:16px;height:16px;">
                     แสดงเฉพาะที่มียอดวิว
                 </label>
@@ -2754,8 +2789,37 @@
             <div class="vs-panel vs-filter-drawer" id="vsFilterPanel" hidden>
                 <div class="vs-filter-group">
                     <span class="vs-filter-group-title">เลือกช่อง</span>
-                    <span class="vs-hint" style="display:block;margin-bottom:10px;">เลือกได้หลายช่อง — รายการในตัวกรอง "รายการ" จะปรับตามช่องที่เลือก</span>
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+                        <span class="vs-hint">เลือกได้หลายช่อง — รายการในตัวกรอง "รายการ" จะปรับตามช่องที่เลือก</span>
+                        <button type="button" class="vs-mini-btn" onclick="setAllVsChannels()">เลือกทั้งหมด</button>
+                        <button type="button" class="vs-mini-btn" onclick="setAllVsChannels()">ล้าง</button>
+                    </div>
                     <div class="vs-chip-row" id="vsChannelChips"></div>
+                </div>
+
+                <div class="vs-filter-group">
+                    <span class="vs-filter-group-title">เลือกหมวดหมู่</span>
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+                        <span class="vs-hint">เลือกได้หลายอัน</span>
+                        <button type="button" class="vs-mini-btn" onclick="setAllVsCategories(true)">เลือกทั้งหมด</button>
+                        <button type="button" class="vs-mini-btn" onclick="setAllVsCategories(false)">ล้าง</button>
+                    </div>
+                    <div class="vs-chip-row" id="vsCategoryChips"></div>
+                </div>
+
+                <div class="vs-filter-group">
+                    <span class="vs-filter-group-title">เลือกแพลตฟอร์ม</span>
+                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
+                        <span class="vs-hint">เลือกได้หลายอัน</span>
+                        <button type="button" class="vs-mini-btn" onclick="setAllVsPlatforms(true)">เลือกทั้งหมด</button>
+                        <button type="button" class="vs-mini-btn" onclick="setAllVsPlatforms(false)">ล้าง</button>
+                    </div>
+                    <div class="vs-chip-row" id="vsPlatformChips">
+                        <button class="vs-chip plat active" data-platform="facebook" onclick="toggleVsPlatform('facebook')">Facebook</button>
+                        <button class="vs-chip plat active" data-platform="youtube" onclick="toggleVsPlatform('youtube')">Youtube</button>
+                        <button class="vs-chip plat active" data-platform="x" onclick="toggleVsPlatform('x')">X</button>
+                        <button class="vs-chip plat active" data-platform="tiktok" onclick="toggleVsPlatform('tiktok')">TikTok</button>
+                    </div>
                 </div>
 
                 <div class="vs-filter-group">
@@ -2794,40 +2858,27 @@
                         <span class="vs-date-wrap">TO
                             <input type="date" id="vsTo" onchange="onVsCustomDate()">
                         </span>
-                        <span class="vs-divider"></span>
-                        <span class="vs-date-wrap">เวลาออกอากาศ
-                            <input type="time" id="vsTimeFrom" onchange="vsRender()">
-                            <button type="button" class="vs-now-btn" onclick="setVsTimeNow('from')"
+                    </div>
+
+                    <div class="vs-timeframe" style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border-color);">
+                        <span class="vs-hint" style="flex-basis:100%;margin-bottom:4px;">เวลาออกอากาศ (24 ชม.)</span>
+                        <span class="vs-date-wrap">FROM
+                            <select id="vsTimeFromH" class="vs-time-select" onchange="onVsCustomTime()" aria-label="ชั่วโมงเริ่มต้น"></select>
+                            <span class="vs-time-colon">:</span>
+                            <select id="vsTimeFromM" class="vs-time-select" onchange="onVsCustomTime()" aria-label="นาทีเริ่มต้น"></select>
+                            <button type="button" class="vs-now-btn" onclick="setVsTimeNow('From')"
                                 title="ใช้เวลาปัจจุบัน">⏱ now</button>
-                            <span>–</span>
-                            <input type="time" id="vsTimeTo" onchange="vsRender()">
-                            <button type="button" class="vs-now-btn" onclick="setVsTimeNow('to')"
+                        </span>
+                        <span class="vs-date-wrap">TO
+                            <select id="vsTimeToH" class="vs-time-select" onchange="onVsCustomTime()" aria-label="ชั่วโมงสิ้นสุด"></select>
+                            <span class="vs-time-colon">:</span>
+                            <select id="vsTimeToM" class="vs-time-select" onchange="onVsCustomTime()" aria-label="นาทีสิ้นสุด"></select>
+                            <button type="button" class="vs-now-btn" onclick="setVsTimeNow('To')"
                                 title="ใช้เวลาปัจจุบัน">⏱ now</button>
                         </span>
                         <button class="vs-chip" onclick="clearVsTimeRange()"
                             style="padding:6px 12px;font-size:11px;">ล้างช่วงเวลา</button>
                     </div>
-                </div>
-
-                <div class="vs-filter-group">
-                    <span class="vs-filter-group-title">เลือกแพลตฟอร์ม</span>
-                    <span class="vs-hint" style="display:block;margin-bottom:10px;">เลือกได้หลายอัน</span>
-                    <div class="vs-chip-row" id="vsPlatformChips">
-                        <button class="vs-chip plat active" data-platform="facebook" onclick="toggleVsPlatform('facebook', this)">Facebook</button>
-                        <button class="vs-chip plat active" data-platform="youtube" onclick="toggleVsPlatform('youtube', this)">Youtube</button>
-                        <button class="vs-chip plat active" data-platform="x" onclick="toggleVsPlatform('x', this)">X</button>
-                        <button class="vs-chip plat active" data-platform="tiktok" onclick="toggleVsPlatform('tiktok', this)">TikTok</button>
-                    </div>
-                </div>
-
-                <div class="vs-filter-group">
-                    <span class="vs-filter-group-title">เลือกหมวดหมู่</span>
-                    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
-                        <span class="vs-hint">เลือกได้หลายอัน</span>
-                        <button type="button" class="vs-mini-btn" onclick="setAllVsCategories(true)">เลือกทั้งหมด</button>
-                        <button type="button" class="vs-mini-btn" onclick="setAllVsCategories(false)">ล้าง</button>
-                    </div>
-                    <div class="vs-chip-row" id="vsCategoryChips"></div>
                 </div>
             </div>
 
@@ -4839,12 +4890,25 @@
            - ช่องที่เลือกได้ = เฉพาะช่องที่มีรายการที่เลือกไว้ (ถ้าไม่เลือกรายการ = ทุกช่อง)
            - รายการที่เลือกได้ = เฉพาะรายการของช่องที่เลือกไว้ (ถ้าไม่เลือกช่อง = ทุกรายการ)
            ทั้ง `vsSelectedChannels` และ `vsSelectedTitles` ว่าง = ไม่กรอง */
+        // แถวนี้มี "ยอดวิวจริง" บนแพลตฟอร์มที่เลือกอยู่หรือไม่
+        //   ใช้กรองตัวเลือกใน dropdown "ช่อง" / "รายการ" เมื่อ checkbox "แสดงเฉพาะที่มียอดวิว" ติ๊ก
+        function vsRowHasView(r) {
+            const platforms = r.platforms || {};
+            return ['facebook', 'youtube', 'x', 'tiktok'].some(p => {
+                if (!vsSelectedPlatforms.has(p)) return false;
+                const pv = (platforms[p] || {}).peak_view;
+                return pv !== null && pv !== undefined;
+            });
+        }
+
         function vsAvailableChannels() {
             const s = new Set();
             const restrict = vsSelectedTitles.size > 0;
+            const onlyWithViews = !!(document.getElementById('vsOnlyWithViews') || {}).checked;
             vsRawRows.forEach(r => {
                 if (!r.channel) return;
                 if (restrict && !vsSelectedTitles.has(String(r.title || '').trim())) return;
+                if (onlyWithViews && !vsRowHasView(r)) return;
                 s.add(r.channel);
             });
             return Array.from(s).sort((a, b) => a.localeCompare(b, 'th'));
@@ -4853,8 +4917,10 @@
         function vsAvailableTitles() {
             const s = new Set();
             const restrict = vsSelectedChannels.size > 0;
+            const onlyWithViews = !!(document.getElementById('vsOnlyWithViews') || {}).checked;
             vsRawRows.forEach(r => {
                 if (restrict && !vsSelectedChannels.has(r.channel)) return;
+                if (onlyWithViews && !vsRowHasView(r)) return;
                 const t = String(r.title || '').trim();
                 if (t) s.add(t);
             });
@@ -4878,34 +4944,53 @@
             vsUpdateProgramLabel();
         }
 
+        // สร้าง/อัปเดต chip ช่อง — ไม่มี chip "ทุกช่อง" แยก (ว่าง = ทุกช่องอยู่แล้ว เลย render เป็น active ทุกอันแทน)
+        // rebuild DOM เฉพาะตอนรายการช่องที่เลือกได้เปลี่ยนจริง (เช่น กรองด้วยรายการ/checkbox) — ปกติแค่ toggle
+        // class 'active' เพื่อให้ transition ของ .vs-chip เห็นเป็น animation ตอน chip ดับ/ติด เหมือน chip หมวดหมู่/แพลตฟอร์ม
         function vsBuildChannelChips() {
             const channels = vsAvailableChannels();
             [...vsSelectedChannels].forEach(ch => { if (!channels.includes(ch)) vsSelectedChannels.delete(ch); });
 
             const wrap = document.getElementById('vsChannelChips');
-            wrap.innerHTML = '';
+            const existing = Array.from(wrap.children).map(b => b.dataset.channel);
+            const sameList = existing.length === channels.length && existing.every((v, i) => v === channels[i]);
 
-            const mk = (label, isActive, onClick) => {
-                const b = document.createElement('button');
-                b.type = 'button';
-                b.className = 'vs-chip' + (isActive ? ' active' : '');
-                b.textContent = label;
-                b.onclick = onClick;
-                wrap.appendChild(b);
-            };
+            if (!sameList) {
+                wrap.innerHTML = '';
+                channels.forEach(ch => {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = 'vs-chip';
+                    b.dataset.channel = ch;
+                    b.textContent = ch;
+                    b.onclick = () => toggleVsChannel(ch);
+                    wrap.appendChild(b);
+                });
+            }
+            vsSyncChannelChipStyles();
+        }
 
-            mk('ทุกช่อง', vsSelectedChannels.size === 0, () => {
-                if (vsSelectedChannels.size === 0) return;
-                vsSelectedChannels.clear();
-                vsSyncChannelTitleFilters();
-                vsRender();
+        function vsSyncChannelChipStyles() {
+            // vsSelectedChannels ว่าง = ยังไม่จำกัดช่อง (ทุกช่อง) — โชว์ทุก chip เป็น active เหมือนกันหมด
+            const allActive = vsSelectedChannels.size === 0;
+            document.querySelectorAll('#vsChannelChips .vs-chip').forEach(b => {
+                b.classList.toggle('active', allActive || vsSelectedChannels.has(b.dataset.channel));
             });
-            channels.forEach(ch => mk(ch, vsSelectedChannels.has(ch), () => {
-                if (vsSelectedChannels.has(ch)) vsSelectedChannels.delete(ch);
-                else vsSelectedChannels.add(ch);
-                vsSyncChannelTitleFilters();
-                vsRender();
-            }));
+        }
+
+        function toggleVsChannel(ch) {
+            if (vsSelectedChannels.has(ch)) vsSelectedChannels.delete(ch);
+            else vsSelectedChannels.add(ch);
+            vsSyncChannelTitleFilters();
+            vsRender();
+        }
+
+        // ปุ่ม "เลือกทั้งหมด" และ "ล้าง" ทำสิ่งเดียวกันสำหรับตัวกรองนี้โดยเจตนา: vsSelectedChannels ว่าง = ทุกช่อง
+        // อยู่แล้ว (ไม่มีสถานะ "ไม่เลือกช่องไหนเลย" แยกต่างหาก) — ทั้งสองปุ่มจึงแค่ reset กลับไปที่ค่าเริ่มต้นนี้
+        function setAllVsChannels() {
+            vsSelectedChannels.clear();
+            vsSyncChannelTitleFilters();
+            vsRender();
         }
 
         // ---- ตัวกรองหมวดหมู่ (multi-select) ----
@@ -4980,8 +5065,17 @@
         }
 
         function toggleVsCategory(cat) {
-            if (vsSelectedCategories.has(cat)) vsSelectedCategories.delete(cat);
-            else vsSelectedCategories.add(cat);
+            // ถ้าตอนนี้เลือกอยู่ "ครบทุกอัน" (ค่าเริ่มต้น) — กดอันไหนให้เหลือแค่อันนั้น (deselect อันอื่น)
+            // ถ้าเลือกอยู่บางส่วนแล้ว — กดอันที่ยังไม่ถูกเลือกให้ "เพิ่ม" เข้าไป, กดอันที่เลือกอยู่แล้วให้ตัดออก
+            // (behavior แบบเดียวกับ "เลือกช่อง") — ถ้าตัดออกแล้วไม่เหลือสักอัน ให้กลับไปเลือกครบทุกอันเหมือนเดิม
+            if (vsSelectedCategories.size === vsAllCategories.length) {
+                vsSelectedCategories = new Set([cat]);
+            } else if (vsSelectedCategories.has(cat)) {
+                vsSelectedCategories.delete(cat);
+                if (vsSelectedCategories.size === 0) vsAllCategories.forEach(c => vsSelectedCategories.add(c));
+            } else {
+                vsSelectedCategories.add(cat);
+            }
             vsSyncCategoryChipStyles();
             vsRender();
         }
@@ -4998,7 +5092,7 @@
             vsCustomTo = null;
             document.getElementById('vsFrom').value = '';
             document.getElementById('vsTo').value = '';
-            document.querySelectorAll('#page-viewstats .vs-timeframe .vs-chip').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('#page-viewstats .vs-timeframe [data-preset]').forEach(c => c.classList.remove('active'));
             if (btn) btn.classList.add('active');
             vsRender();
         }
@@ -5010,36 +5104,100 @@
             vsCustomTo = t ? new Date(t + 'T23:59:59') : null;
             if (vsCustomFrom || vsCustomTo) {
                 vsPreset = 'custom';
-                document.querySelectorAll('#page-viewstats .vs-timeframe .vs-chip').forEach(c => c.classList.remove('active'));
+                document.querySelectorAll('#page-viewstats .vs-timeframe [data-preset]').forEach(c => c.classList.remove('active'));
             }
+            vsRender();
+        }
+
+        // ---- "เวลาออกอากาศ" ใช้ <select> HH/MM คู่ (vsTimeFromH/M, vsTimeToH/M) แทน <input type="time"> ----
+        // เหตุผล: input[type=time] ของ browser โชว์ 12 ชม. (AM/PM) ตามโลแคลเครื่องผู้ใช้เสมอ บังคับเป็น 24 ชม.
+        // ด้วย CSS/HTML ไม่ได้จริง (ลอง lang="en-GB" แล้วไม่ผลกับ Chrome รุ่นใหม่) select ตัวเลขล้วนการันตี
+        // 24 ชม. ทุกเครื่อง + กดเลือกง่ายกว่าปั่น spinner เดิม. which = 'From' หรือ 'To' (ตรงตัวพิมพ์กับ id)
+
+        // สร้าง <option> 00-23 (ชั่วโมง) และ 00-59 (นาที) ให้ select ทั้ง 4 ตัว ครั้งเดียวตอนโหลดหน้า
+        function vsInitTimeSelects() {
+            const fillOptions = (sel, count) => {
+                if (!sel) return;
+                let html = '<option value="">--</option>';
+                for (let i = 0; i < count; i++) {
+                    const v = String(i).padStart(2, '0');
+                    html += `<option value="${v}">${v}</option>`;
+                }
+                sel.innerHTML = html;
+            };
+            fillOptions(document.getElementById('vsTimeFromH'), 24);
+            fillOptions(document.getElementById('vsTimeToH'), 24);
+            fillOptions(document.getElementById('vsTimeFromM'), 60);
+            fillOptions(document.getElementById('vsTimeToM'), 60);
+        }
+
+        // อ่านค่าเวลาเป็น 'HH:MM' จาก select คู่ — ว่าง (ไม่ได้เลือกชั่วโมงหรือนาที) = '' (ไม่กรอง)
+        function vsTimeVal(which) {
+            const h = (document.getElementById('vsTime' + which + 'H') || {}).value || '';
+            const m = (document.getElementById('vsTime' + which + 'M') || {}).value || '';
+            return (h && m) ? `${h}:${m}` : '';
+        }
+
+        // ตั้งค่า select คู่จากสตริง 'HH:MM' (หรือ '' เพื่อล้าง)
+        function vsSetTimeVal(which, val) {
+            const hSel = document.getElementById('vsTime' + which + 'H');
+            const mSel = document.getElementById('vsTime' + which + 'M');
+            const [h, m] = val ? val.split(':') : ['', ''];
+            if (hSel) hSel.value = h;
+            if (mSel) mSel.value = m;
+        }
+
+        // ผู้ใช้เลือก FROM/TO เอง
+        function onVsCustomTime() {
             vsRender();
         }
 
         function clearVsTimeRange() {
-            document.getElementById('vsTimeFrom').value = '';
-            document.getElementById('vsTimeTo').value = '';
+            vsSetTimeVal('From', '');
+            vsSetTimeVal('To', '');
             vsRender();
         }
 
-        // ตั้งค่าช่องเวลา (from/to) ให้เป็นเวลาปัจจุบัน
+        // ตั้งค่าช่องเวลา (From/To) ให้เป็นเวลาปัจจุบัน — which = 'From' หรือ 'To'
         function setVsTimeNow(which) {
             const now = new Date();
             const hhmm = String(now.getHours()).padStart(2, '0') + ':' +
                 String(now.getMinutes()).padStart(2, '0');
-            if (which !== 'to') document.getElementById('vsTimeFrom').value = hhmm;
-            if (which !== 'from') document.getElementById('vsTimeTo').value = hhmm;
+            vsSetTimeVal(which, hhmm);
             vsRender();
         }
 
-        function toggleVsPlatform(platform, btn) {
-            if (vsSelectedPlatforms.has(platform)) {
-                if (vsSelectedPlatforms.size === 1) return; // อย่างน้อยต้องเลือก 1
+        function vsSyncPlatformChipStyles() {
+            document.querySelectorAll('#vsPlatformChips .vs-chip.plat').forEach(b => {
+                b.classList.toggle('active', vsSelectedPlatforms.has(b.dataset.platform));
+            });
+        }
+
+        function toggleVsPlatform(platform) {
+            // ถ้าตอนนี้เลือกอยู่ "ครบทุกอัน" (ค่าเริ่มต้น) — กดอันไหนให้เหลือแค่อันนั้น (deselect อันอื่น)
+            // ถ้าเลือกอยู่บางส่วนแล้ว — กดอันที่ยังไม่ถูกเลือกให้ "เพิ่ม" เข้าไป, กดอันที่เลือกอยู่แล้วให้ตัดออก
+            // (behavior แบบเดียวกับ "เลือกช่อง") — ถ้าตัดออกแล้วไม่เหลือสักอัน ให้กลับไปเลือกครบทุกอันเหมือนเดิม
+            const platformBtns = document.querySelectorAll('#vsPlatformChips .vs-chip.plat');
+            if (vsSelectedPlatforms.size === platformBtns.length) {
+                vsSelectedPlatforms = new Set([platform]);
+            } else if (vsSelectedPlatforms.has(platform)) {
                 vsSelectedPlatforms.delete(platform);
-                btn.classList.remove('active');
+                if (vsSelectedPlatforms.size === 0) {
+                    platformBtns.forEach(b => vsSelectedPlatforms.add(b.dataset.platform));
+                }
             } else {
                 vsSelectedPlatforms.add(platform);
-                btn.classList.add('active');
             }
+            vsSyncPlatformChipStyles();
+            vsSyncChannelTitleFilters();   // ตัวเลือก dropdown "มียอดวิว" ขึ้นกับแพลตฟอร์มที่เลือกด้วย
+            vsRender();
+        }
+
+        function setAllVsPlatforms(on) {
+            const all = Array.from(document.querySelectorAll('#vsPlatformChips .vs-chip.plat')).map(b => b.dataset.platform);
+            vsSelectedPlatforms = new Set(on ? all : []);
+            vsSyncPlatformChipStyles();
+            vsSyncChannelTitleFilters();
             vsRender();
         }
 
@@ -5120,8 +5278,8 @@
 
             const showDate = vsPreset !== 'today';
             const onlyWithViews = document.getElementById('vsOnlyWithViews').checked;
-            const timeFrom = document.getElementById('vsTimeFrom').value;   // 'HH:mm' หรือ ''
-            const timeTo = document.getElementById('vsTimeTo').value;
+            const timeFrom = vsTimeVal('From');   // 'HH:MM' หรือ '' (จาก select HH/MM คู่)
+            const timeTo = vsTimeVal('To');
             const entries = [];
             const matchedRows = [];   // แถวที่ผ่านตัวกรอง ช่อง/รายการ/ช่วงวัน/ช่วงเวลา/หมวดหมู่ (ก่อนกรองแพลตฟอร์ม/มียอดวิว)
 
@@ -5402,8 +5560,8 @@
 
             const f = (document.getElementById('vsFrom') || {}).value || '';
             const t = (document.getElementById('vsTo') || {}).value || '';
-            const tFrom = (document.getElementById('vsTimeFrom') || {}).value || '';
-            const tTo = (document.getElementById('vsTimeTo') || {}).value || '';
+            const tFrom = vsTimeVal('From');
+            const tTo = vsTimeVal('To');
             if (vsPreset !== 'all' || f || t || tFrom || tTo) n++;
 
             if (vsSelectedPlatforms.size < 4) n++;
@@ -7024,6 +7182,9 @@
             document.getElementById('searchInput').addEventListener('input', applyFilters);
             document.getElementById('channelFilter').addEventListener('change', applyFilters);
             document.getElementById('categoryFilter').addEventListener('change', applyFilters);
+
+            // เติม <option> 00-23 / 00-59 ให้ select ตัวกรอง "เวลาออกอากาศ" (24 ชม. เสมอ ไม่ผูกกับโลแคลเครื่อง)
+            vsInitTimeSelects();
 
             // Close dropdown on outside click
             document.addEventListener('click', (e) => {
