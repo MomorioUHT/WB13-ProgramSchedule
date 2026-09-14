@@ -3226,7 +3226,8 @@
                         <thead>
                             <tr>
                                 <th style="width: 110px;">ช่อง</th>
-                                <th style="width: 190px;">ชื่อรายการ</th>
+                                <th style="width: 160px;">ชื่อรายการ</th>
+                                <th style="width: 170px;">ชื่อสำรอง (Alt Titles)</th>
                                 <th>Facebook URL / Watch</th>
                                 <th>YouTube Stream / Channel</th>
                                 <th style="width: 150px;">TikTok Live</th>
@@ -6557,6 +6558,9 @@
         function areOverridesEqual(bo1, bo2) {
             if (!bo1 && !bo2) return true;
             if (!bo1 || !bo2) return false;
+            const alts1 = (bo1.alternative_titles || []).slice().sort().join('\n');
+            const alts2 = (bo2.alternative_titles || []).slice().sort().join('\n');
+            if (alts1 !== alts2) return false;
             const plats = ['facebook', 'youtube', 'tiktok', 'x'];
             for (let i = 0; i < plats.length; i++) {
                 const p = plats[i];
@@ -6591,7 +6595,11 @@
             });
 
             // 2. Merge Broadcast Overrides
-            const getBoKey = (bo) => `${String(bo.channel || '').trim()}:::${String(bo.title || '').trim().toLowerCase()}`;
+            const getBoKey = (bo) => {
+                const rawT = String(bo.raw_title || bo.title || '').trim();
+                const primaryT = rawT.split(/[\r\n]+/)[0].trim().toLowerCase();
+                return `${String(bo.channel || '').trim()}:::${primaryT}`;
+            };
 
             const baseBoMap = new Map();
             ((baseConfig && baseConfig.broadcast_overrides) || []).forEach(bo => {
@@ -6633,10 +6641,15 @@
                     const cleanYt = dedupeUrlList(latestBo.youtube);
                     const cleanTt = dedupeUrlList(latestBo.tiktok);
                     const cleanX = dedupeUrlList(latestBo.x);
-                    if (cleanFb.length || cleanYt.length || cleanTt.length || cleanX.length) {
+                    const alts = Array.isArray(latestBo.alternative_titles) ? latestBo.alternative_titles : [];
+                    const rawT = latestBo.raw_title || (alts.length ? [latestBo.title].concat(alts).join('\n') : latestBo.title);
+                    if (cleanFb.length || cleanYt.length || cleanTt.length || cleanX.length || alts.length) {
                         mergedOverrides.push({
                             channel: latestBo.channel,
                             title: latestBo.title,
+                            raw_title: rawT,
+                            alternative_titles: alts,
+                            all_titles: latestBo.all_titles || [latestBo.title].concat(alts),
                             facebook: cleanFb,
                             youtube: cleanYt,
                             tiktok: cleanTt,
@@ -6649,12 +6662,20 @@
                         }
                     }
                 } else {
-                    // Both have it! 3-way merge its platform URLs
+                    // Both have it! 3-way merge its platform URLs & alternative titles
                     const userBo = userBoMap.get(k);
                     const baseBo = baseBoMap.get(k) || {};
+                    const userAlts = Array.isArray(userBo.alternative_titles) ? userBo.alternative_titles : [];
+                    const latestAlts = Array.isArray(latestBo.alternative_titles) ? latestBo.alternative_titles : [];
+                    const mergedAlts = Array.from(new Set([...userAlts, ...latestAlts]));
+                    const primaryT = userBo.title || latestBo.title;
+                    const rawT = userBo.raw_title || [primaryT].concat(mergedAlts).join('\n');
                     const mergedBo = {
                         channel: userBo.channel || latestBo.channel,
-                        title: userBo.title || latestBo.title
+                        title: primaryT,
+                        raw_title: rawT,
+                        alternative_titles: mergedAlts,
+                        all_titles: [primaryT].concat(mergedAlts)
                     };
                     ['facebook', 'youtube', 'tiktok', 'x'].forEach(plat => {
                         const res = mergeUrlLists3Way(baseBo[plat], latestBo[plat], userBo[plat]);
@@ -6667,10 +6688,11 @@
                     const hasAny = (mergedBo.facebook && mergedBo.facebook.length) ||
                                    (mergedBo.youtube && mergedBo.youtube.length) ||
                                    (mergedBo.tiktok && mergedBo.tiktok.length) ||
-                                   (mergedBo.x && mergedBo.x.length);
+                                   (mergedBo.x && mergedBo.x.length) ||
+                                   (mergedBo.alternative_titles && mergedBo.alternative_titles.length);
                     if (hasAny) {
                         mergedOverrides.push(mergedBo);
-                    } else if (baseBo.facebook?.length || baseBo.youtube?.length || baseBo.tiktok?.length || baseBo.x?.length) {
+                    } else if (baseBo.facebook?.length || baseBo.youtube?.length || baseBo.tiktok?.length || baseBo.x?.length || baseBo.alternative_titles?.length) {
                         otherChangesCount++;
                         mergeNotes.push(`รายการเฉพาะ: '${mergedBo.title}' (${mergedBo.channel}) ลิงก์ทั้งหมดถูกลบ`);
                     }
@@ -6696,10 +6718,15 @@
                     const cleanYt = dedupeUrlList(userBo.youtube);
                     const cleanTt = dedupeUrlList(userBo.tiktok);
                     const cleanX = dedupeUrlList(userBo.x);
-                    if (cleanFb.length || cleanYt.length || cleanTt.length || cleanX.length) {
+                    const alts = Array.isArray(userBo.alternative_titles) ? userBo.alternative_titles : [];
+                    const rawT = userBo.raw_title || (alts.length ? [userBo.title].concat(alts).join('\n') : userBo.title);
+                    if (cleanFb.length || cleanYt.length || cleanTt.length || cleanX.length || alts.length) {
                         mergedOverrides.push({
                             channel: userBo.channel,
                             title: userBo.title,
+                            raw_title: rawT,
+                            alternative_titles: alts,
+                            all_titles: userBo.all_titles || [userBo.title].concat(alts),
                             facebook: cleanFb,
                             youtube: cleanYt,
                             tiktok: cleanTt,
@@ -6971,6 +6998,106 @@
             return list;
         }
 
+        function ensureBroadcastOverrideExists(channel, title) {
+            if (!currentLinkConfig.broadcast_overrides) currentLinkConfig.broadcast_overrides = [];
+            let bo = currentLinkConfig.broadcast_overrides.find(b =>
+                b.channel === channel && String(b.title || '').trim().toLowerCase() === title.toLowerCase()
+            );
+            if (!bo) {
+                bo = {
+                    channel: channel,
+                    title: title,
+                    raw_title: title,
+                    all_titles: [title],
+                    alternative_titles: [],
+                    facebook: [],
+                    youtube: [],
+                    tiktok: [],
+                    x: []
+                };
+                currentLinkConfig.broadcast_overrides.push(bo);
+            }
+            ['facebook', 'youtube', 'tiktok', 'x'].forEach(p => {
+                if (!Array.isArray(bo[p])) {
+                    bo[p] = bo[p] ? [bo[p]] : [];
+                }
+            });
+            if (!Array.isArray(bo.alternative_titles)) {
+                bo.alternative_titles = [];
+            }
+            return bo;
+        }
+
+        function onBroadcastUrlChange(channel, title, platform, index, value) {
+            const bo = ensureBroadcastOverrideExists(channel, title);
+            const raw = String(value || '').trim();
+            let split = raw.split(/[\r\n,]+/).map(s => s.trim()).filter(Boolean);
+            if (platform === 'facebook') {
+                split = split.map(cleanFbPageUrl);
+            }
+            if (split.length > 1) {
+                bo[platform].splice(index, 1, ...split);
+            } else {
+                bo[platform][index] = split[0] || '';
+            }
+            bo[platform] = dedupeUrlList(bo[platform].filter(Boolean));
+            renderBroadcastOverrides();
+        }
+
+        function onAddBroadcastUrl(channel, title, platform) {
+            const bo = ensureBroadcastOverrideExists(channel, title);
+            bo[platform].push('');
+            renderBroadcastOverrides();
+        }
+
+        function onRemoveBroadcastUrl(channel, title, platform, index) {
+            const bo = ensureBroadcastOverrideExists(channel, title);
+            bo[platform].splice(index, 1);
+            renderBroadcastOverrides();
+        }
+
+        function buildBroadcastMultiUrlBox(channel, title, platform, placeholderText, btnLabel) {
+            const bo = ensureBroadcastOverrideExists(channel, title);
+            const arr = bo[platform];
+            const displayList = arr.length > 0 ? arr : [''];
+
+            let html = `<div class="lc-multi-url-box" style="min-width: 170px;">`;
+            displayList.forEach((url, idx) => {
+                html += `
+                    <div class="lc-url-row">
+                        <span class="lc-url-idx">${idx + 1}.</span>
+                        <input type="text" class="lc-input" 
+                            placeholder="${placeholderText}" 
+                            value="${escapeHtml(url)}" 
+                            data-ch="${escapeHtml(channel)}" 
+                            data-title="${escapeHtml(title)}"
+                            data-plat="${platform}" 
+                            data-idx="${idx}"
+                            onchange="onBroadcastUrlChange(this.getAttribute('data-ch'), this.getAttribute('data-title'), this.getAttribute('data-plat'), parseInt(this.getAttribute('data-idx')), this.value)"
+                            onkeydown="if(event.key==='Enter'){event.preventDefault(); onAddBroadcastUrl(this.getAttribute('data-ch'), this.getAttribute('data-title'), this.getAttribute('data-plat'));}">
+                        ${(displayList.length > 1 || url) ? `
+                            <button type="button" class="lc-btn-del-url" title="ลบลิงก์นี้" onclick="onRemoveBroadcastUrl(this.previousElementSibling.getAttribute('data-ch'), this.previousElementSibling.getAttribute('data-title'), this.previousElementSibling.getAttribute('data-plat'), parseInt(this.previousElementSibling.getAttribute('data-idx'))">&times;</button>
+                        ` : ''}
+                    </div>
+                `;
+            });
+
+            html += `
+                <button type="button" class="lc-btn-add-url" data-ch="${escapeHtml(channel)}" data-title="${escapeHtml(title)}" data-plat="${platform}" onclick="onAddBroadcastUrl(this.getAttribute('data-ch'), this.getAttribute('data-title'), this.getAttribute('data-plat'))">
+                    ${btnLabel}
+                </button>
+            </div>`;
+            return html;
+        }
+
+        function updateBroadcastAlternativeTitles(channel, title, value) {
+            const bo = ensureBroadcastOverrideExists(channel, title);
+            const alts = String(value || '').split(/[\r\n]+/).map(s => s.trim()).filter(Boolean);
+            bo.alternative_titles = Array.from(new Set(alts));
+            bo.all_titles = [bo.title].concat(bo.alternative_titles);
+            bo.raw_title = bo.all_titles.join('\n');
+        }
+
         function renderBroadcastOverrides() {
             const tbody = document.getElementById('lcBroadcastsTableBody');
             if (!tbody) return;
@@ -6982,7 +7109,11 @@
             const allItems = getDiscoveredBroadcasts();
             const filtered = allItems.filter(it => {
                 if (chFilter && it.channel !== chFilter) return false;
-                if (q && !it.title.toLowerCase().includes(q) && !it.channel.toLowerCase().includes(q)) return false;
+                const bo = it.override || (currentLinkConfig.broadcast_overrides || []).find(b =>
+                    b.channel === it.channel && String(b.title || '').trim().toLowerCase() === it.title.toLowerCase()
+                );
+                const altMatch = bo && Array.isArray(bo.alternative_titles) && bo.alternative_titles.some(at => at.toLowerCase().includes(q));
+                if (q && !it.title.toLowerCase().includes(q) && !it.channel.toLowerCase().includes(q) && !altMatch) return false;
                 return true;
             });
 
@@ -6992,7 +7123,7 @@
             }
 
             if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #94a3b8; padding: 24px;">ไม่พบรายการที่ตรงกับเงื่อนไขค้นหา</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #94a3b8; padding: 24px;">ไม่พบรายการที่ตรงกับเงื่อนไขค้นหา</td></tr>`;
                 return;
             }
 
@@ -7002,33 +7133,29 @@
                     b.channel === it.channel && String(b.title || '').trim().toLowerCase() === it.title.toLowerCase()
                 ) || {};
 
-                const fbVal = Array.isArray(bo.facebook) ? bo.facebook.join(', ') : (bo.facebook || '');
-                const ytVal = Array.isArray(bo.youtube) ? bo.youtube.join(', ') : (bo.youtube || '');
-                const ttVal = Array.isArray(bo.tiktok) ? bo.tiktok.join(', ') : (bo.tiktok || '');
-                const xVal = Array.isArray(bo.x) ? bo.x.join(', ') : (bo.x || '');
+                const altsVal = (bo.alternative_titles && Array.isArray(bo.alternative_titles))
+                    ? bo.alternative_titles.join('\n')
+                    : ((bo.raw_title && bo.raw_title.includes('\n')) ? bo.raw_title.split(/[\r\n]+/).slice(1).join('\n') : '');
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><span class="lc-badge">${escapeHtml(it.channel)}</span></td>
-                    <td style="font-weight: 600; color: #f1f5f9;">${escapeHtml(it.title)}</td>
-                    <td><input type="text" class="lc-input lc-bo-fb" placeholder="(ใช้ตามช่อง หรือระบุลิงก์ FB)" value="${escapeHtml(fbVal)}"></td>
-                    <td><input type="text" class="lc-input lc-bo-yt" placeholder="(ใช้ตามช่อง หรือระบุลิงก์ YT)" value="${escapeHtml(ytVal)}"></td>
-                    <td><input type="text" class="lc-input lc-bo-tt" placeholder="(ใช้ตามช่อง)" value="${escapeHtml(ttVal)}"></td>
-                    <td><input type="text" class="lc-input lc-bo-x" placeholder="(ใช้ตามช่อง)" value="${escapeHtml(xVal)}"></td>
-                    <td style="text-align: center;"><button type="button" class="lc-btn-del" title="ล้างลิงก์เฉพาะรายการนี้">&times;</button></td>
+                    <td style="font-weight: 600; color: #f1f5f9; min-width: 140px;">${escapeHtml(it.title)}</td>
+                    <td style="min-width: 160px;">
+                        <textarea class="lc-input lc-bo-alts" rows="1" 
+                            style="width: 100%; font-size: 11px; line-height: 1.35; resize: vertical; min-height: 28px; padding: 3px 6px; background: rgba(15, 23, 42, 0.55); border: 1px dashed rgba(148, 163, 184, 0.3); border-radius: 4px; color: #cbd5e1;" 
+                            placeholder="+ ชื่อสำรอง (แยก 1 บรรทัดต่อ 1 ชื่อ)" 
+                            title="ชื่อสำรองกรณีเพจตั้งชื่อ Live ไม่ตรงกับผัง (แยก 1 บรรทัดต่อ 1 ชื่อ)"
+                            data-ch="${escapeHtml(it.channel)}" 
+                            data-title="${escapeHtml(it.title)}"
+                            onchange="updateBroadcastAlternativeTitles(this.getAttribute('data-ch'), this.getAttribute('data-title'), this.value)">${escapeHtml(altsVal)}</textarea>
+                    </td>
+                    <td>${buildBroadcastMultiUrlBox(it.channel, it.title, 'facebook', '(ใช้ตามช่อง หรือระบุ FB)', '+ เพิ่มลิงก์ FB')}</td>
+                    <td>${buildBroadcastMultiUrlBox(it.channel, it.title, 'youtube', '(ใช้ตามช่อง หรือระบุ YT)', '+ เพิ่มลิงก์ YT')}</td>
+                    <td>${buildBroadcastMultiUrlBox(it.channel, it.title, 'tiktok', '(ใช้ตามช่อง หรือระบุ TT)', '+ เพิ่มลิงก์ TT')}</td>
+                    <td>${buildBroadcastMultiUrlBox(it.channel, it.title, 'x', '(ใช้ตามช่อง หรือระบุ X)', '+ เพิ่มลิงก์ X')}</td>
+                    <td style="text-align: center;"><button type="button" class="lc-btn-del" title="ล้างลิงก์และชื่อสำรองเฉพาะรายการนี้" onclick="deleteBroadcastOverride(decodeURIComponent('${encodeURIComponent(it.channel)}'), decodeURIComponent('${encodeURIComponent(it.title)}'))">&times;</button></td>
                 `;
-
-                const fbInp = tr.querySelector('.lc-bo-fb');
-                const ytInp = tr.querySelector('.lc-bo-yt');
-                const ttInp = tr.querySelector('.lc-bo-tt');
-                const xInp = tr.querySelector('.lc-bo-x');
-                const delBtn = tr.querySelector('.lc-btn-del');
-
-                if (fbInp) fbInp.addEventListener('change', (e) => updateBroadcastOverride(it.channel, it.title, 'facebook', e.target.value));
-                if (ytInp) ytInp.addEventListener('change', (e) => updateBroadcastOverride(it.channel, it.title, 'youtube', e.target.value));
-                if (ttInp) ttInp.addEventListener('change', (e) => updateBroadcastOverride(it.channel, it.title, 'tiktok', e.target.value));
-                if (xInp) xInp.addEventListener('change', (e) => updateBroadcastOverride(it.channel, it.title, 'x', e.target.value));
-                if (delBtn) delBtn.addEventListener('click', () => deleteBroadcastOverride(it.channel, it.title));
 
                 frag.appendChild(tr);
             });
@@ -7065,22 +7192,6 @@
             } catch (e) {
                 return u;
             }
-        }
-
-        function updateBroadcastOverride(channel, title, platform, value) {
-            if (!currentLinkConfig.broadcast_overrides) currentLinkConfig.broadcast_overrides = [];
-            let bo = currentLinkConfig.broadcast_overrides.find(b =>
-                b.channel === channel && String(b.title || '').trim().toLowerCase() === title.toLowerCase()
-            );
-            if (!bo) {
-                bo = { channel: channel, title: title, facebook: [], youtube: [], tiktok: [], x: [] };
-                currentLinkConfig.broadcast_overrides.push(bo);
-            }
-            let urls = String(value || '').split(/[\r\n,]+/).map(s => s.trim()).filter(Boolean);
-            if (platform === 'facebook') {
-                urls = urls.map(cleanFbPageUrl);
-            }
-            bo[platform] = dedupeUrlList(urls);
         }
 
         function deleteBroadcastOverride(channel, title) {
@@ -7122,26 +7233,39 @@
             const newChSel = document.getElementById('lcNewBroadcastChannel');
             const titleInp = document.getElementById('lcNewBroadcastTitle');
             const ch = (newChSel && newChSel.value) ? newChSel.value : '3 HD';
-            const title = (titleInp && titleInp.value) ? titleInp.value.trim() : '';
-            if (!title) {
+            const rawTitle = (titleInp && titleInp.value) ? titleInp.value.trim() : '';
+            if (!rawTitle) {
                 alert('กรุณาระบุชื่อรายการ');
                 if (titleInp) titleInp.focus();
                 return;
             }
 
+            const lines = rawTitle.split(/[\r\n]+/).map(s => s.trim()).filter(Boolean);
+            const primaryTitle = lines[0];
+            const altTitles = lines.slice(1);
+
             if (!currentLinkConfig.broadcast_overrides) currentLinkConfig.broadcast_overrides = [];
-            const exists = currentLinkConfig.broadcast_overrides.some(b =>
-                b.channel === ch && String(b.title || '').trim().toLowerCase() === title.toLowerCase()
+            let existingBo = currentLinkConfig.broadcast_overrides.find(b =>
+                b.channel === ch && String(b.title || '').trim().toLowerCase() === primaryTitle.toLowerCase()
             );
-            if (!exists) {
+            if (!existingBo) {
                 currentLinkConfig.broadcast_overrides.unshift({
                     channel: ch,
-                    title: title,
+                    title: primaryTitle,
+                    raw_title: rawTitle,
+                    all_titles: lines,
+                    alternative_titles: altTitles,
                     facebook: [],
                     youtube: [],
                     tiktok: [],
                     x: []
                 });
+            } else {
+                if (altTitles.length > 0) {
+                    existingBo.alternative_titles = Array.from(new Set([...(existingBo.alternative_titles || []), ...altTitles]));
+                    existingBo.all_titles = [existingBo.title].concat(existingBo.alternative_titles);
+                    existingBo.raw_title = existingBo.all_titles.join('\n');
+                }
             }
 
             // Sync filter dropdown if user was filtering another channel
@@ -7343,20 +7467,28 @@
                 }
                 if (btn) btn.textContent = '⏳ กำลังบันทึก...';
 
-                // 3. Clean overrides (only keep ones with at least 1 URL) & deduplicate URLs
-                const cleanOverrides = (currentLinkConfig.broadcast_overrides || []).map(b => ({
-                    channel: b.channel,
-                    title: b.title,
-                    facebook: dedupeUrlList(b.facebook),
-                    youtube: dedupeUrlList(b.youtube),
-                    tiktok: dedupeUrlList(b.tiktok),
-                    x: dedupeUrlList(b.x)
-                })).filter(b => {
+                // 3. Clean overrides (only keep ones with at least 1 URL OR alternative titles) & deduplicate URLs
+                const cleanOverrides = (currentLinkConfig.broadcast_overrides || []).map(b => {
+                    const alts = Array.isArray(b.alternative_titles) ? b.alternative_titles.filter(Boolean) : [];
+                    const rawT = b.raw_title || (alts.length ? [b.title].concat(alts).join('\n') : b.title);
+                    return {
+                        channel: b.channel,
+                        title: b.title,
+                        raw_title: rawT,
+                        alternative_titles: alts,
+                        all_titles: b.all_titles || [b.title].concat(alts),
+                        facebook: dedupeUrlList(b.facebook),
+                        youtube: dedupeUrlList(b.youtube),
+                        tiktok: dedupeUrlList(b.tiktok),
+                        x: dedupeUrlList(b.x)
+                    };
+                }).filter(b => {
                     const fbHas = b.facebook && b.facebook.length;
                     const ytHas = b.youtube && b.youtube.length;
                     const ttHas = b.tiktok && b.tiktok.length;
                     const xHas = b.x && b.x.length;
-                    return fbHas || ytHas || ttHas || xHas;
+                    const altHas = (b.alternative_titles && b.alternative_titles.length) || (b.raw_title && b.raw_title.includes('\n'));
+                    return fbHas || ytHas || ttHas || xHas || altHas;
                 });
 
                 // Ensure channel_links has all channels and deduplicate URLs

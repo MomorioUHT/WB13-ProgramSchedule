@@ -863,6 +863,13 @@ function isYouTubeVideoUrl_(url) {
  *   L YouTube Peak time  | M YouTube Views
  *   N TikTok Peak time   | O TikTok Views
  *   P X Peak time        | Q X Views
+ */
+
+/**
+ * ==========================================================================
+ * LIVE VIEW STATS ENDPOINT
+ * ==========================================================================
+ * ดึงข้อมูลจากชีท 'View Stats' (ทั้งหมด 17 คอลัมน์) เพื่อนำไปแสดงผลบนแดชบอร์ด
  *
  * เรียกใช้:  GET  <exec>?action=view_stats
  *           POST <exec>  body: {"action":"view_stats"}
@@ -967,7 +974,7 @@ var CHANNEL_LINKS_SHEET = 'Channel_Links';
 var BROADCAST_OVERRIDES_SHEET = 'Broadcast_Overrides';
 
 var CHANNEL_LINKS_HEADERS = ['Channel', 'Facebook URLs', 'YouTube URLs', 'TikTok URLs', 'X URLs', 'Last Updated'];
-var BROADCAST_OVERRIDES_HEADERS = ['Channel', 'Program Title', 'Facebook URLs', 'YouTube URLs', 'TikTok URLs', 'X URLs', 'Last Updated'];
+var BROADCAST_OVERRIDES_HEADERS = ['Channel', 'Program Title', 'Alternative Titles', 'Facebook URLs', 'YouTube URLs', 'TikTok URLs', 'X URLs', 'Last Updated'];
 
 function isScheduleSheetName_(sName) {
   var n = String(sName || '').trim().toLowerCase();
@@ -1055,20 +1062,57 @@ function getLinkConfig_(ss, options) {
       boSheet.getRange(1, 1, 1, BROADCAST_OVERRIDES_HEADERS.length).setValues([BROADCAST_OVERRIDES_HEADERS]);
       boSheet.setFrozenRows(1);
     } else if (boSheet.getLastRow() >= 2) {
+      var numBoCols = boSheet.getLastColumn();
+      var headerVals = boSheet.getRange(1, 1, 1, Math.max(numBoCols, BROADCAST_OVERRIDES_HEADERS.length)).getValues()[0];
+      var hasAltCol = String(headerVals[2] || '').toLowerCase().indexOf('alt') >= 0;
+
       var numBoRows = boSheet.getLastRow() - 1;
-      var boVals = boSheet.getRange(2, 1, numBoRows, 7).getValues();
+      var boVals = boSheet.getRange(2, 1, numBoRows, Math.max(numBoCols, 8)).getValues();
       boVals.forEach(function(r) {
         var ch = String(r[0] || '').trim();
-        var title = String(r[1] || '').trim();
-        if (!ch || !title) return;
+        var rawTitle = String(r[1] || '').trim();
+        if (!ch || !rawTitle) return;
+
+        var altTitles = [];
+        var fbIdx = 2;
+        var ytIdx = 3;
+        var ttIdx = 4;
+        var xIdx = 5;
+        var dateIdx = 6;
+
+        if (hasAltCol || numBoCols >= 8) {
+          fbIdx = 3;
+          ytIdx = 4;
+          ttIdx = 5;
+          xIdx = 6;
+          dateIdx = 7;
+          var rawAlts = String(r[2] || '').trim();
+          if (rawAlts) {
+            altTitles = rawAlts.split(/\r?\n/).map(function(t) { return t.trim(); }).filter(function(t) { return t.length > 0; });
+          }
+        }
+
+        var titleLines = rawTitle.split(/\r?\n/).map(function(t) { return t.trim(); }).filter(function(t) { return t.length > 0; });
+        var primaryTitle = titleLines.length > 0 ? titleLines[0] : rawTitle;
+        if (titleLines.length > 1) {
+          titleLines.slice(1).forEach(function(t) {
+            if (altTitles.indexOf(t) === -1) altTitles.push(t);
+          });
+        }
+
+        var allTitles = [primaryTitle].concat(altTitles);
+
         broadcastOverrides.push({
           channel: ch,
-          title: title,
-          facebook: parseUrlList_(r[2]),
-          youtube: parseUrlList_(r[3]),
-          tiktok: parseUrlList_(r[4]),
-          x: parseUrlList_(r[5]),
-          last_updated: r[6] ? String(r[6]) : ''
+          title: primaryTitle,
+          raw_title: allTitles.join('\n'),
+          all_titles: allTitles,
+          alternative_titles: altTitles,
+          facebook: parseUrlList_(r[fbIdx]),
+          youtube: parseUrlList_(r[ytIdx]),
+          tiktok: parseUrlList_(r[ttIdx]),
+          x: parseUrlList_(r[xIdx]),
+          last_updated: r[dateIdx] ? String(r[dateIdx]) : ''
         });
       });
     }
@@ -1167,9 +1211,28 @@ function mergeUrlLists3WayServer_(baseList, sheetList, incomingList) {
   return result;
 }
 
+function getAltTitlesServer_(b) {
+  if (!b) return [];
+  if (Array.isArray(b.alternative_titles) && b.alternative_titles.length > 0) {
+    return b.alternative_titles.map(function(x) { return String(x || '').trim(); }).filter(function(x) { return x.length > 0; });
+  }
+  var raw = String(b.raw_title || '').trim();
+  if (raw && raw.indexOf('\n') >= 0) {
+    var lines = raw.split(/\r?\n/).map(function(x) { return x.trim(); }).filter(function(x) { return x.length > 0; });
+    return lines.slice(1);
+  }
+  return [];
+}
+
 function areOverridesEqualServer_(bo1, bo2) {
   if (!bo1 && !bo2) return true;
   if (!bo1 || !bo2) return false;
+  var t1 = String((bo1 && bo1.title) || '').trim();
+  var t2 = String((bo2 && bo2.title) || '').trim();
+  if (t1 !== t2) return false;
+  var alts1 = getAltTitlesServer_(bo1).slice().sort().join('\n');
+  var alts2 = getAltTitlesServer_(bo2).slice().sort().join('\n');
+  if (alts1 !== alts2) return false;
   var plats = ['facebook', 'youtube', 'tiktok', 'x'];
   for (var i = 0; i < plats.length; i++) {
     var p = plats[i];
@@ -1248,7 +1311,9 @@ function saveLinkConfig_(ss, req) {
       }
 
       var getBoKey = function(b) {
-        return String(b.channel || '').trim() + ':::' + String(b.title || '').trim().toLowerCase();
+        var rawT = String(b.raw_title || b.title || '').trim();
+        var primaryT = rawT.split(/\r?\n/)[0].trim().toLowerCase();
+        return String(b.channel || '').trim() + ':::' + primaryT;
       };
 
       var baseBoMap = {};
@@ -1285,9 +1350,11 @@ function saveLinkConfig_(ss, req) {
         if (userDeletedOverrides[k]) return;
         var sBo = sheetBoMap[k];
         if (!incBoMap[k]) {
+          var sAlts = getAltTitlesServer_(sBo).join('\n');
           boRows.push([
             sBo.channel,
             sBo.title,
+            sAlts,
             dedupeUrls_(sBo.facebook).join('\n'),
             dedupeUrls_(sBo.youtube).join('\n'),
             dedupeUrls_(sBo.tiktok).join('\n'),
@@ -1301,8 +1368,17 @@ function saveLinkConfig_(ss, req) {
           var yt = mergeUrlLists3WayServer_(bBo.youtube, sBo.youtube, iBo.youtube).join('\n');
           var tt = mergeUrlLists3WayServer_(bBo.tiktok, sBo.tiktok, iBo.tiktok).join('\n');
           var x = mergeUrlLists3WayServer_(bBo.x, sBo.x, iBo.x).join('\n');
-          if (fb || yt || tt || x) {
-            boRows.push([iBo.channel || sBo.channel, iBo.title || sBo.title, fb, yt, tt, x, nowStr]);
+
+          var iAlts = getAltTitlesServer_(iBo);
+          var sAltsList = getAltTitlesServer_(sBo);
+          var combinedAlts = [];
+          iAlts.forEach(function(a) { if (combinedAlts.indexOf(a) === -1) combinedAlts.push(a); });
+          sAltsList.forEach(function(a) { if (combinedAlts.indexOf(a) === -1) combinedAlts.push(a); });
+          var altsStr = combinedAlts.join('\n');
+
+          var primaryT = iBo.title || sBo.title;
+          if (fb || yt || tt || x || combinedAlts.length > 0) {
+            boRows.push([iBo.channel || sBo.channel, primaryT, altsStr, fb, yt, tt, x, nowStr]);
           }
         }
         handledKeys[k] = true;
@@ -1313,8 +1389,6 @@ function saveLinkConfig_(ss, req) {
         if (!handledKeys[k]) {
           var iBo = incBoMap[k];
           var bBo = baseBoMap[k];
-          // If this override was in base, but missing from sheet, another user deleted it from the sheet!
-          // If incoming request made no new edits compared to base, respect the server deletion and DO NOT resurrect!
           if (bBo && areOverridesEqualServer_(bBo, iBo)) {
             return;
           }
@@ -1322,10 +1396,13 @@ function saveLinkConfig_(ss, req) {
           var yt = dedupeUrls_(iBo.youtube).join('\n');
           var tt = dedupeUrls_(iBo.tiktok).join('\n');
           var x = dedupeUrls_(iBo.x).join('\n');
-          if (fb || yt || tt || x) {
+          var iAlts = getAltTitlesServer_(iBo);
+          var altsStr = iAlts.join('\n');
+          if (fb || yt || tt || x || iAlts.length > 0) {
             boRows.push([
               iBo.channel,
               iBo.title,
+              altsStr,
               fb,
               yt,
               tt,
@@ -1337,11 +1414,15 @@ function saveLinkConfig_(ss, req) {
         }
       });
 
+      if (boSheet.getLastColumn() < BROADCAST_OVERRIDES_HEADERS.length) {
+        boSheet.getRange(1, 1, 1, BROADCAST_OVERRIDES_HEADERS.length).setValues([BROADCAST_OVERRIDES_HEADERS]);
+        boSheet.setFrozenRows(1);
+      }
       if (boSheet.getLastRow() > 1) {
         boSheet.getRange(2, 1, boSheet.getLastRow() - 1, boSheet.getLastColumn()).clearContent();
       }
       if (boRows.length > 0) {
-        boSheet.getRange(2, 1, boRows.length, 7).setNumberFormat('@').setValues(boRows);
+        boSheet.getRange(2, 1, boRows.length, 8).setNumberFormat('@').setValues(boRows);
       }
       updatedOverrides = boRows.length;
     }

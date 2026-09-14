@@ -1,0 +1,19 @@
+services:
+  fetcher:
+    container_name: fetcher
+    build:
+      context: ./fetcher
+      dockerfile: Dockerfile
+    image: wb14-fetcher:latest
+    restart: unless-stopped
+    env_file:
+      - ./fetcher/.env
+    environment:
+      # Global
+      - TZ=Asia/Bangkok
+      # Fetcher
+      - REQUEST_TIMEOUT=60
+      - APPS_SCRIPT_TIMEOUT=120
+      - MAX_RETRIES=3
+      - RETRY_WAIT=5
+      - SHEET_PAUSE=1
