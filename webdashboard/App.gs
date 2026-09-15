@@ -1211,6 +1211,77 @@ function mergeUrlLists3WayServer_(baseList, sheetList, incomingList) {
   return result;
 }
 
+function mergeAltTitles3WayServer_(baseList, sheetList, incomingList) {
+  var cleanList = function(arr) {
+    if (!Array.isArray(arr)) return [];
+    var out = [];
+    var seen = {};
+    for (var i = 0; i < arr.length; i++) {
+      var s = String(arr[i] || '').trim();
+      var norm = s.toLowerCase();
+      if (s.length > 0 && !seen[norm]) {
+        seen[norm] = true;
+        out.push(s);
+      }
+    }
+    return out;
+  };
+
+  var base = cleanList(baseList);
+  var sheet = cleanList(sheetList);
+  var incoming = cleanList(incomingList);
+
+  // If base was not provided or empty, incoming is authoritative
+  if (base.length === 0) {
+    return incoming;
+  }
+
+  var baseMap = {};
+  for (var i = 0; i < base.length; i++) baseMap[base[i].toLowerCase()] = true;
+
+  var incomingMap = {};
+  for (var i = 0; i < incoming.length; i++) incomingMap[incoming[i].toLowerCase()] = true;
+
+  var userAdded = [];
+  for (var i = 0; i < incoming.length; i++) {
+    if (!baseMap[incoming[i].toLowerCase()]) {
+      userAdded.push(incoming[i]);
+    }
+  }
+
+  var userDeletedMap = {};
+  for (var i = 0; i < base.length; i++) {
+    if (!incomingMap[base[i].toLowerCase()]) {
+      userDeletedMap[base[i].toLowerCase()] = true;
+    }
+  }
+
+  var result = [];
+  var seen = {};
+
+  // 1. Keep titles currently in sheet (unless explicitly deleted by incoming request)
+  for (var i = 0; i < sheet.length; i++) {
+    var norm = sheet[i].toLowerCase();
+    if (!userDeletedMap[norm]) {
+      if (!seen[norm]) {
+        seen[norm] = true;
+        result.push(sheet[i]);
+      }
+    }
+  }
+
+  // 2. Add titles added by incoming request
+  for (var i = 0; i < userAdded.length; i++) {
+    var norm = userAdded[i].toLowerCase();
+    if (!seen[norm]) {
+      seen[norm] = true;
+      result.push(userAdded[i]);
+    }
+  }
+
+  return result;
+}
+
 function getAltTitlesServer_(b) {
   if (!b) return [];
   if (Array.isArray(b.alternative_titles) && b.alternative_titles.length > 0) {
@@ -1369,15 +1440,14 @@ function saveLinkConfig_(ss, req) {
           var tt = mergeUrlLists3WayServer_(bBo.tiktok, sBo.tiktok, iBo.tiktok).join('\n');
           var x = mergeUrlLists3WayServer_(bBo.x, sBo.x, iBo.x).join('\n');
 
-          var iAlts = getAltTitlesServer_(iBo);
+          var bAlts = getAltTitlesServer_(bBo);
           var sAltsList = getAltTitlesServer_(sBo);
-          var combinedAlts = [];
-          iAlts.forEach(function(a) { if (combinedAlts.indexOf(a) === -1) combinedAlts.push(a); });
-          sAltsList.forEach(function(a) { if (combinedAlts.indexOf(a) === -1) combinedAlts.push(a); });
-          var altsStr = combinedAlts.join('\n');
+          var iAlts = getAltTitlesServer_(iBo);
+          var mergedAlts = mergeAltTitles3WayServer_(bAlts, sAltsList, iAlts);
+          var altsStr = mergedAlts.join('\n');
 
           var primaryT = iBo.title || sBo.title;
-          if (fb || yt || tt || x || combinedAlts.length > 0) {
+          if (fb || yt || tt || x || mergedAlts.length > 0) {
             boRows.push([iBo.channel || sBo.channel, primaryT, altsStr, fb, yt, tt, x, nowStr]);
           }
         }

@@ -6555,6 +6555,74 @@
             };
         }
 
+        function mergeAltTitles3Way(baseList, latestList, userList) {
+            const clean = (arr) => {
+                const out = [];
+                const seen = new Set();
+                (arr || []).forEach(s => {
+                    const str = String(s || '').trim();
+                    const norm = str.toLowerCase();
+                    if (str && !seen.has(norm)) {
+                        seen.add(norm);
+                        out.push(str);
+                    }
+                });
+                return out;
+            };
+
+            const base = clean(baseList);
+            const latest = clean(latestList);
+            const user = clean(userList);
+
+            const baseSet = new Set(base.map(s => s.toLowerCase()));
+            const userSet = new Set(user.map(s => s.toLowerCase()));
+
+            // Titles in base that the user deleted in their working copy
+            const userDeleted = new Set(base.filter(b => !userSet.has(b.toLowerCase())).map(b => b.toLowerCase()));
+            // Titles in working copy that were not in base (added by user)
+            const userAdded = user.filter(u => !baseSet.has(u.toLowerCase()));
+            // Titles added by others concurrently
+            const otherAdded = latest.filter(l => !baseSet.has(l.toLowerCase()));
+
+            // If base was empty (e.g. newly created override with no base), user list is authoritative
+            if (base.length === 0 && user.length > 0) {
+                return {
+                    merged: user,
+                    newFromOthers: otherAdded.filter(o => !userSet.has(o.toLowerCase()))
+                };
+            }
+
+            const result = [];
+            const seen = new Set();
+
+            // 1. Keep titles currently in latest sheet, UNLESS explicitly deleted by this user
+            latest.forEach(t => {
+                const norm = t.toLowerCase();
+                if (!userDeleted.has(norm)) {
+                    if (!seen.has(norm)) {
+                        seen.add(norm);
+                        result.push(t);
+                    }
+                }
+            });
+
+            // 2. Add titles added by this user
+            userAdded.forEach(t => {
+                const norm = t.toLowerCase();
+                if (!seen.has(norm)) {
+                    seen.add(norm);
+                    result.push(t);
+                }
+            });
+
+            const newFromOthers = otherAdded.filter(o => !userSet.has(o.toLowerCase()));
+
+            return {
+                merged: result,
+                newFromOthers: newFromOthers
+            };
+        }
+
         function areOverridesEqual(bo1, bo2) {
             if (!bo1 && !bo2) return true;
             if (!bo1 || !bo2) return false;
@@ -6665,9 +6733,15 @@
                     // Both have it! 3-way merge its platform URLs & alternative titles
                     const userBo = userBoMap.get(k);
                     const baseBo = baseBoMap.get(k) || {};
+                    const baseAlts = Array.isArray(baseBo.alternative_titles) ? baseBo.alternative_titles : [];
                     const userAlts = Array.isArray(userBo.alternative_titles) ? userBo.alternative_titles : [];
                     const latestAlts = Array.isArray(latestBo.alternative_titles) ? latestBo.alternative_titles : [];
-                    const mergedAlts = Array.from(new Set([...userAlts, ...latestAlts]));
+                    const altRes = mergeAltTitles3Way(baseAlts, latestAlts, userAlts);
+                    const mergedAlts = altRes.merged;
+                    if (altRes.newFromOthers && altRes.newFromOthers.length > 0) {
+                        otherChangesCount += altRes.newFromOthers.length;
+                        mergeNotes.push(`${userBo.title} (ชื่อสำรอง): +${altRes.newFromOthers.length} ชื่อจากผู้ใช้อื่น`);
+                    }
                     const primaryT = userBo.title || latestBo.title;
                     const rawT = userBo.raw_title || [primaryT].concat(mergedAlts).join('\n');
                     const mergedBo = {
@@ -7023,7 +7097,11 @@
                 }
             });
             if (!Array.isArray(bo.alternative_titles)) {
-                bo.alternative_titles = [];
+                if (bo.raw_title && bo.raw_title.includes('\n')) {
+                    bo.alternative_titles = bo.raw_title.split(/[\r\n]+/).map(s => s.trim()).filter(Boolean).slice(1);
+                } else {
+                    bo.alternative_titles = [];
+                }
             }
             return bo;
         }
@@ -7048,6 +7126,13 @@
             const bo = ensureBroadcastOverrideExists(channel, title);
             bo[platform].push('');
             renderBroadcastOverrides();
+            setTimeout(() => {
+                const inputs = Array.from(document.querySelectorAll('.lc-multi-url-box input.lc-input'))
+                    .filter(el => el.getAttribute('data-ch') === channel && el.getAttribute('data-title') === title && el.getAttribute('data-plat') === platform);
+                if (inputs.length > 0) {
+                    inputs[inputs.length - 1].focus();
+                }
+            }, 40);
         }
 
         function onRemoveBroadcastUrl(channel, title, platform, index) {
@@ -7074,9 +7159,17 @@
                             data-plat="${platform}" 
                             data-idx="${idx}"
                             onchange="onBroadcastUrlChange(this.getAttribute('data-ch'), this.getAttribute('data-title'), this.getAttribute('data-plat'), parseInt(this.getAttribute('data-idx')), this.value)"
-                            onkeydown="if(event.key==='Enter'){event.preventDefault(); onAddBroadcastUrl(this.getAttribute('data-ch'), this.getAttribute('data-title'), this.getAttribute('data-plat'));}">
+                            onkeydown="if(event.key==='Enter'){event.preventDefault(); onBroadcastUrlChange(this.getAttribute('data-ch'), this.getAttribute('data-title'), this.getAttribute('data-plat'), parseInt(this.getAttribute('data-idx')), this.value); onAddBroadcastUrl(this.getAttribute('data-ch'), this.getAttribute('data-title'), this.getAttribute('data-plat'));}">
                         ${(displayList.length > 1 || url) ? `
-                            <button type="button" class="lc-btn-del-url" title="ลบลิงก์นี้" onclick="onRemoveBroadcastUrl(this.previousElementSibling.getAttribute('data-ch'), this.previousElementSibling.getAttribute('data-title'), this.previousElementSibling.getAttribute('data-plat'), parseInt(this.previousElementSibling.getAttribute('data-idx'))">&times;</button>
+                            <button type="button" class="lc-btn-del-url" title="ลบลิงก์นี้" 
+                                data-ch="${escapeHtml(channel)}" 
+                                data-title="${escapeHtml(title)}" 
+                                data-plat="${platform}" 
+                                data-idx="${idx}" 
+                                onmousedown="event.preventDefault();"
+                                onclick="onRemoveBroadcastUrl(this.getAttribute('data-ch'), this.getAttribute('data-title'), this.getAttribute('data-plat'), parseInt(this.getAttribute('data-idx')))">
+                                &times;
+                            </button>
                         ` : ''}
                     </div>
                 `;
@@ -7090,12 +7183,91 @@
             return html;
         }
 
-        function updateBroadcastAlternativeTitles(channel, title, value) {
+        function onBroadcastAltTitleChange(channel, title, index, value) {
             const bo = ensureBroadcastOverrideExists(channel, title);
-            const alts = String(value || '').split(/[\r\n]+/).map(s => s.trim()).filter(Boolean);
-            bo.alternative_titles = Array.from(new Set(alts));
-            bo.all_titles = [bo.title].concat(bo.alternative_titles);
+            const raw = String(value || '').trim();
+            let split = raw.split(/[\r\n]+/).map(s => s.trim()).filter(Boolean);
+            if (split.length > 1) {
+                bo.alternative_titles.splice(index, 1, ...split);
+            } else {
+                while (bo.alternative_titles.length <= index) {
+                    bo.alternative_titles.push('');
+                }
+                bo.alternative_titles[index] = split[0] || '';
+            }
+            const seen = new Set();
+            bo.alternative_titles = bo.alternative_titles.filter((s, i) => {
+                const norm = s.trim().toLowerCase();
+                if (!norm) return true; // keep blank entry while editing
+                if (seen.has(norm)) return false;
+                seen.add(norm);
+                return true;
+            });
+            bo.all_titles = [bo.title].concat(bo.alternative_titles.filter(Boolean));
             bo.raw_title = bo.all_titles.join('\n');
+            renderBroadcastOverrides();
+        }
+
+        function onAddBroadcastAltTitle(channel, title) {
+            const bo = ensureBroadcastOverrideExists(channel, title);
+            bo.alternative_titles.push('');
+            renderBroadcastOverrides();
+            setTimeout(() => {
+                const inputs = Array.from(document.querySelectorAll('input.lc-alt-input'))
+                    .filter(el => el.getAttribute('data-ch') === channel && el.getAttribute('data-title') === title);
+                if (inputs.length > 0) {
+                    inputs[inputs.length - 1].focus();
+                }
+            }, 40);
+        }
+
+        function onRemoveBroadcastAltTitle(channel, title, index) {
+            const bo = ensureBroadcastOverrideExists(channel, title);
+            bo.alternative_titles.splice(index, 1);
+            bo.all_titles = [bo.title].concat(bo.alternative_titles.filter(Boolean));
+            bo.raw_title = bo.all_titles.join('\n');
+            renderBroadcastOverrides();
+        }
+
+        function buildBroadcastAltTitlesBox(channel, title) {
+            const bo = ensureBroadcastOverrideExists(channel, title);
+            const arr = Array.isArray(bo.alternative_titles) ? bo.alternative_titles : [];
+            const displayList = arr.length > 0 ? arr : [''];
+
+            let html = `<div class="lc-multi-url-box" style="min-width: 170px;">`;
+            displayList.forEach((alt, idx) => {
+                html += `
+                    <div class="lc-url-row">
+                        <span class="lc-url-idx">${idx + 1}.</span>
+                        <input type="text" class="lc-input lc-alt-input" 
+                            placeholder="+ ชื่อสำรอง..." 
+                            title="ชื่อสำรองกรณีเพจตั้งชื่อ Live ไม่ตรงกับผังรายการ"
+                            value="${escapeHtml(alt)}" 
+                            data-ch="${escapeHtml(channel)}" 
+                            data-title="${escapeHtml(title)}"
+                            data-idx="${idx}"
+                            onchange="onBroadcastAltTitleChange(this.getAttribute('data-ch'), this.getAttribute('data-title'), parseInt(this.getAttribute('data-idx')), this.value)"
+                            onkeydown="if(event.key==='Enter'){event.preventDefault(); onBroadcastAltTitleChange(this.getAttribute('data-ch'), this.getAttribute('data-title'), parseInt(this.getAttribute('data-idx')), this.value); onAddBroadcastAltTitle(this.getAttribute('data-ch'), this.getAttribute('data-title'));}">
+                        ${(displayList.length > 1 || alt) ? `
+                            <button type="button" class="lc-btn-del-url" title="ลบชื่อสำรองนี้" 
+                                data-ch="${escapeHtml(channel)}" 
+                                data-title="${escapeHtml(title)}" 
+                                data-idx="${idx}" 
+                                onmousedown="event.preventDefault();"
+                                onclick="onRemoveBroadcastAltTitle(this.getAttribute('data-ch'), this.getAttribute('data-title'), parseInt(this.getAttribute('data-idx')))">
+                                &times;
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+            });
+
+            html += `
+                <button type="button" class="lc-btn-add-url" data-ch="${escapeHtml(channel)}" data-title="${escapeHtml(title)}" onclick="onAddBroadcastAltTitle(this.getAttribute('data-ch'), this.getAttribute('data-title'))">
+                    + เพิ่มชื่อสำรอง
+                </button>
+            </div>`;
+            return html;
         }
 
         function renderBroadcastOverrides() {
@@ -7129,27 +7301,11 @@
 
             const frag = document.createDocumentFragment();
             filtered.forEach((it) => {
-                const bo = it.override || (currentLinkConfig.broadcast_overrides || []).find(b =>
-                    b.channel === it.channel && String(b.title || '').trim().toLowerCase() === it.title.toLowerCase()
-                ) || {};
-
-                const altsVal = (bo.alternative_titles && Array.isArray(bo.alternative_titles))
-                    ? bo.alternative_titles.join('\n')
-                    : ((bo.raw_title && bo.raw_title.includes('\n')) ? bo.raw_title.split(/[\r\n]+/).slice(1).join('\n') : '');
-
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><span class="lc-badge">${escapeHtml(it.channel)}</span></td>
                     <td style="font-weight: 600; color: #f1f5f9; min-width: 140px;">${escapeHtml(it.title)}</td>
-                    <td style="min-width: 160px;">
-                        <textarea class="lc-input lc-bo-alts" rows="1" 
-                            style="width: 100%; font-size: 11px; line-height: 1.35; resize: vertical; min-height: 28px; padding: 3px 6px; background: rgba(15, 23, 42, 0.55); border: 1px dashed rgba(148, 163, 184, 0.3); border-radius: 4px; color: #cbd5e1;" 
-                            placeholder="+ ชื่อสำรอง (แยก 1 บรรทัดต่อ 1 ชื่อ)" 
-                            title="ชื่อสำรองกรณีเพจตั้งชื่อ Live ไม่ตรงกับผัง (แยก 1 บรรทัดต่อ 1 ชื่อ)"
-                            data-ch="${escapeHtml(it.channel)}" 
-                            data-title="${escapeHtml(it.title)}"
-                            onchange="updateBroadcastAlternativeTitles(this.getAttribute('data-ch'), this.getAttribute('data-title'), this.value)">${escapeHtml(altsVal)}</textarea>
-                    </td>
+                    <td>${buildBroadcastAltTitlesBox(it.channel, it.title)}</td>
                     <td>${buildBroadcastMultiUrlBox(it.channel, it.title, 'facebook', '(ใช้ตามช่อง หรือระบุ FB)', '+ เพิ่มลิงก์ FB')}</td>
                     <td>${buildBroadcastMultiUrlBox(it.channel, it.title, 'youtube', '(ใช้ตามช่อง หรือระบุ YT)', '+ เพิ่มลิงก์ YT')}</td>
                     <td>${buildBroadcastMultiUrlBox(it.channel, it.title, 'tiktok', '(ใช้ตามช่อง หรือระบุ TT)', '+ เพิ่มลิงก์ TT')}</td>
@@ -7365,7 +7521,14 @@
                             onchange="onChannelUrlChange(this.getAttribute('data-ch'), this.getAttribute('data-plat'), parseInt(this.getAttribute('data-idx')), this.value)"
                             onkeydown="if(event.key==='Enter'){event.preventDefault(); onAddChannelUrl(this.getAttribute('data-ch'), this.getAttribute('data-plat'));}">
                         ${(displayList.length > 1 || url) ? `
-                            <button type="button" class="lc-btn-del-url" title="ลบลิงก์นี้" onclick="onRemoveChannelUrl(this.previousElementSibling.getAttribute('data-ch'), this.previousElementSibling.getAttribute('data-plat'), parseInt(this.previousElementSibling.getAttribute('data-idx'))">&times;</button>
+                            <button type="button" class="lc-btn-del-url" title="ลบลิงก์นี้" 
+                                data-ch="${escapeHtml(channel)}" 
+                                data-plat="${platform}" 
+                                data-idx="${idx}" 
+                                onmousedown="event.preventDefault();"
+                                onclick="onRemoveChannelUrl(this.getAttribute('data-ch'), this.getAttribute('data-plat'), parseInt(this.getAttribute('data-idx')))">
+                                &times;
+                            </button>
                         ` : ''}
                     </div>
                 `;
@@ -7515,11 +7678,12 @@
                 const result = await resp.json();
                 if (result.ok || result.status === 'ok' || result.success) {
                     // Refresh current config directly from server response (or fetch fresh from sheet)
-                    if (result.channel_links) {
-                        currentLinkConfig.channel_links = result.channel_links;
-                        currentLinkConfig.broadcast_overrides = result.broadcast_overrides || [];
-                        if (result.channel_broadcasts && Object.keys(result.channel_broadcasts).length > 0) {
-                            currentLinkConfig.channel_broadcasts = result.channel_broadcasts;
+                    const serverResult = (result.result && typeof result.result === 'object') ? result.result : result;
+                    if (serverResult.channel_links) {
+                        currentLinkConfig.channel_links = serverResult.channel_links;
+                        currentLinkConfig.broadcast_overrides = serverResult.broadcast_overrides || [];
+                        if (serverResult.channel_broadcasts && Object.keys(serverResult.channel_broadcasts).length > 0) {
+                            currentLinkConfig.channel_broadcasts = serverResult.channel_broadcasts;
                         }
                     } else {
                         try {
