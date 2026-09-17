@@ -46,6 +46,7 @@ REQUEST_TIMEOUT = int(os.environ["REQUEST_TIMEOUT"])
 APPS_SCRIPT_TIMEOUT = int(os.environ["APPS_SCRIPT_TIMEOUT"])
 MAX_RETRIES = int(os.environ["MAX_RETRIES"])
 RETRY_WAIT = int(os.environ["RETRY_WAIT"])
+SHEET_PAUSE = int(os.environ["SHEET_PAUSE"])
 
 API_URL = os.environ["DTT_URL"]
 API_PAYLOAD = {"channelType": "1"}
@@ -246,36 +247,31 @@ def call_apps_script(action: str, **params) -> dict:
 
 
 def push_to_sheets(sheets: dict[str, list[list[str]]]) -> None:
-    # single batched request for every sheet - Apps Script loops internally (was 2 calls/sheet before)
     total = len(sheets)
-    log.info("Syncing %d sheet(s) to Google Sheets in one batch request...", total)
-    res = call_apps_script("sync_programs_batch", sheets=sheets)
-    results = res.get("results", {})
-
     grand_appended = 0
     grand_skipped = 0
-    for index, name in enumerate(sorted(results), start=1):
-        r = results[name]
-        if "error" in r:
-            log.error("[%d/%d] %s failed: %s", index, total, name, r["error"])
-            continue
-        appended = r.get("appended", 0)
-        skipped = r.get("skipped", 0)
+    log.info("Syncing %d sheet(s) to Google Sheets...", total)
+    for index, (channel, rows) in enumerate(sorted(sheets.items()), start=1):
+        log.info("[%d/%d] Syncing %s...", index, total, channel)
+        created = call_apps_script("create", sheet=channel)
+
+        # Append only
+        res = call_apps_script("append_programs", sheet=channel, data=rows)
+        appended = res.get("appended", 0)
+        skipped = res.get("skipped", 0)
         grand_appended += appended
         grand_skipped += skipped
         log.info(
             "[%d/%d] %s: +%d new, %d existing, %d skipped_old (new_sheet=%s, total=%s)",
-            index, total, name, appended, skipped, r.get("skipped_old", 0),
-            r.get("created", False), r.get("total_rows", "?"),
+            index, total, channel, appended, skipped, res.get("skipped_old", 0),
+            created.get("created", False), res.get("total_rows", "?"),
         )
+        time.sleep(SHEET_PAUSE)
 
-    failed = res.get("failed", [])
     log.info(
         "Sync done: %d sheets, +%d new rows, %d already existed",
         total, grand_appended, grand_skipped,
     )
-    if failed:
-        log.warning("%d sheet(s) failed: %s", len(failed), ", ".join(failed))
 
 
 # --------------------------------------------------------------------------- #
@@ -310,35 +306,35 @@ def resolve_target_sheets(sheet_args: list[str]) -> list[str]:
 
 
 def purge_old_records(cutoff_raw: str, sheet_names: list[str], dry_run: bool = False) -> int:
-    # single batched request for every sheet via Apps Script action=purge_before_batch
+    # remove rows older than cutoff from each sheet via Apps Script action=purge_before
     cutoff = normalize_purge_date(cutoff_raw)
-    total = len(sheet_names)
     log.info(
-        "Purge: removing rows older than %s from %d sheet(s) in one batch request%s",
-        cutoff, total, " [DRY RUN]" if dry_run else "",
+        "Purge: removing rows older than %s from %d sheet(s)%s",
+        cutoff, len(sheet_names), " [DRY RUN]" if dry_run else "",
     )
 
-    res = call_apps_script(
-        "purge_before_batch", sheets=sheet_names, cutoff=cutoff, dry_run=dry_run
-    )
-    results = res.get("results", {})
-
+    total = len(sheet_names)
     grand_removed = 0
     failed: list[str] = []
     for index, name in enumerate(sheet_names, start=1):
-        r = results.get(name, {})
-        if "error" in r:
-            log.error("[%d/%d] %s failed: %s", index, total, name, r["error"])
+        log.info("[%d/%d] Purging %s...", index, total, name)
+        try:
+            res = call_apps_script(
+                "purge_before", sheet=name, cutoff=cutoff, dry_run=dry_run
+            )
+        except RuntimeError as exc:
+            log.error("[%d/%d] %s failed: %s", index, total, name, exc)
             failed.append(name)
             continue
 
-        removed = r.get("removed", 0)
-        kept = r.get("kept", 0)
+        removed = res.get("removed", 0)
+        kept = res.get("kept", 0)
         grand_removed += removed
         log.info("[%d/%d] %s: %d removed, %d kept", index, total, name, removed, kept)
-        for sample in r.get("removed_sample", [])[:3]:
+        for sample in res.get("removed_sample", [])[:3]:
             cols = list(sample) + ["", "", ""]
             log.debug("    sample removed: %s %s %s", cols[0], cols[1], cols[2])
+        time.sleep(SHEET_PAUSE)
 
     log.info(
         "Purge done: %d row(s) %s across %d sheet(s)",

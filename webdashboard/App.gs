@@ -10,6 +10,8 @@
  * รองรับ:
  *   1. create / get / put (ระบบตารางรายการเดิมของ CombinedScraper)
  *   1.5 append_programs (sync แบบ append-only: เพิ่มเฉพาะรายการใหม่ ต่อท้าย ไม่แตะของเดิม)
+ *   1.6 sync_programs_batch (เหมือน append_programs แต่ทำ "ทุกชีท" ใน 1 request เดียว - ประหยัด API call)
+ *   1.7 purge_before_batch (เหมือน purge_before แต่ทำ "ทุกชีท" ใน 1 request เดียว)
  *   2. get_all / list_sheets (ดึงข้อมูลผังรายการของทุกช่องพร้อมกัน)
  *   3. write_row / update_urls (เขียนลิงก์สด FB/YT/X/TikTok ที่ Crawl เจอกลับลงตารางผัง)
  *   4. append_view_stats (บันทึกยอดวิวย้อนหลังลงชีท 'View Stats' คอลัมน์ A-L)
@@ -136,6 +138,48 @@ function doPost(e) {
       return jsonOut({ ok: true, action: action, result: result });
     }
 
+    // [ADDED] Capacity management: ตรวจสอบและเพิ่มแถวอัตโนมัติหากชีทใกล้เต็ม
+    if (action === 'ensure_capacity' || action === 'check_capacity' || action === 'expand_sheet' || action === 'add_rows') {
+      var targetSheetName = req.sheet || req.target_sheet || 'View Stats';
+      var targetSh = ss.getSheetByName(targetSheetName);
+      if (!targetSh) {
+        if (targetSheetName === 'View Stats') {
+          targetSh = ss.insertSheet('View Stats');
+          targetSh.getRange(1, 1, 1, VIEW_STATS_HEADERS.length).setValues([VIEW_STATS_HEADERS]);
+          targetSh.setFrozenRows(1);
+          targetSh.getRange('A:A').setNumberFormat('@');
+          targetSh.getRange('E:E').setNumberFormat('@');
+          targetSh.getRange('J:J').setNumberFormat('@');
+          targetSh.getRange('L:L').setNumberFormat('@');
+          targetSh.getRange('N:N').setNumberFormat('@');
+          targetSh.getRange('P:P').setNumberFormat('@');
+        } else {
+          throw new Error('sheet not found: ' + targetSheetName);
+        }
+      }
+      var minFree = (req.min_free_rows != null) ? parseInt(req.min_free_rows, 10) : 100;
+      var addCount = (req.add_rows != null) ? parseInt(req.add_rows, 10) : 1000;
+      if (action === 'add_rows' && req.rows != null) {
+        addCount = parseInt(req.rows, 10);
+        var curMax = targetSh.getMaxRows();
+        targetSh.insertRowsAfter(curMax, addCount);
+        result = {
+          ok: true,
+          sheet: targetSheetName,
+          expanded: true,
+          added: addCount,
+          previous_max: curMax,
+          new_max: targetSh.getMaxRows(),
+          last_row: targetSh.getLastRow(),
+          free_rows: targetSh.getMaxRows() - targetSh.getLastRow()
+        };
+      } else {
+        result = ensureSheetCapacity_(targetSh, minFree, addCount);
+        result.sheet = targetSheetName;
+      }
+      return jsonOut({ ok: true, action: action, result: result });
+    }
+
     // 1. บันทึกยอดวิว Peak View (One row per broadcast per day) ลงชีท "View Stats"
     if (action === 'append_view_stats' || action === 'upsert_view_stats' || req.target_sheet === 'View Stats') {
       result = upsertViewStats_(ss, req);
@@ -193,10 +237,23 @@ function doPost(e) {
       return jsonOut({ ok: true, action: action, result: result });
     }
 
+    // 6.5b batch version of append_programs: ทำ "ทุกชีท" ใน request เดียว (req.sheets = {sheetName: [[d,t,title],...]})
+    // ประหยัด HTTP round trip: เดิมยิง create+append_programs ต่อชีท -> ตอนนี้ยิง 1 ครั้งจบทุกชีท
+    if (action === 'sync_programs_batch' || action === 'append_programs_batch') {
+      result = appendProgramsBatch_(ss, req.sheets);
+      return jsonOut({ ok: true, action: action, result: result });
+    }
+
     // 6.6 purge: ลบแถวผังรายการที่ "วันเก่ากว่า" cutoff แล้วเลื่อนข้อมูลที่เหลือขึ้นแทนช่องว่าง
     //     (หัวตารางแถว 1 ไม่ถูกแตะ ; คอลัมน์ลิงก์ D:G เลื่อนตามแถวไปด้วย)
     if (action === 'purge_before' || action === 'purge_old' || action === 'delete_before') {
       result = purgeProgramsBefore_(ss, req.sheet, req.cutoff || req.date || req.before, req);
+      return jsonOut({ ok: true, action: action, result: result });
+    }
+
+    // 6.6b batch version of purge_before: ทำ "ทุกชีท" ใน request เดียว (req.sheets = [sheetName, ...])
+    if (action === 'purge_before_batch' || action === 'purge_batch') {
+      result = purgeProgramsBatch_(ss, req.sheets, req.cutoff || req.date || req.before, req);
       return jsonOut({ ok: true, action: action, result: result });
     }
 
@@ -271,6 +328,12 @@ function putData(ss, name, data, corner) {
   }
 
   if (data.length > 0) {
+    var curMax = sh.getMaxRows();
+    var neededRows = rc.row + data.length - 1;
+    if (curMax < neededRows + 50) {
+      var toAdd = Math.max(1000, (neededRows + 1000) - curMax);
+      sh.insertRowsAfter(curMax, toAdd);
+    }
     sh.getRange(rc.row, rc.col, data.length, width)
       .setNumberFormat('@')
       .setValues(data);
@@ -346,6 +409,12 @@ function appendPrograms_(ss, name, data) {
   // 3. ต่อท้ายใต้แถวสุดท้าย — ไม่ทับของเดิม
   if (toAppend.length > 0) {
     var startRow = Math.max(sh.getLastRow() + 1, START_ROW);
+    var neededRows = startRow + toAppend.length - 1;
+    var curMax = sh.getMaxRows();
+    if (curMax < neededRows + 50) {
+      var toAdd = Math.max(1000, (neededRows + 1000) - curMax);
+      sh.insertRowsAfter(curMax, toAdd);
+    }
     sh.getRange(startRow, 1, toAppend.length, PROGRAM_COLS)
       .setNumberFormat('@')
       .setValues(toAppend);
@@ -360,6 +429,41 @@ function appendPrograms_(ss, name, data) {
     appended: toAppend.length,
     skipped: skipped,
     total_rows: existingCount + toAppend.length
+  };
+}
+
+/**
+ * Batch version of appendPrograms_: sync หลายชีทใน request/execution เดียว
+ * sheetsMap = { sheetName: [[วัน, เวลา, รายการ], ...], ... } - reuse appendPrograms_ ต่อชีท
+ * (appendPrograms_ สร้างชีทให้เองถ้ายังไม่มี เลยไม่ต้องเรียก createSheet แยกอีกแล้ว)
+ */
+function appendProgramsBatch_(ss, sheetsMap) {
+  sheetsMap = sheetsMap || {};
+  var names = Object.keys(sheetsMap);
+  var results = {};
+  var totalAppended = 0;
+  var totalSkipped = 0;
+  var failed = [];
+
+  for (var i = 0; i < names.length; i++) {
+    var name = names[i];
+    try {
+      var res = appendPrograms_(ss, name, sheetsMap[name]);
+      results[name] = res;
+      totalAppended += res.appended;
+      totalSkipped += res.skipped;
+    } catch (err) {
+      results[name] = { error: String(err && err.stack ? err.stack : err) };
+      failed.push(name);
+    }
+  }
+
+  return {
+    sheets: names.length,
+    total_appended: totalAppended,
+    total_skipped: totalSkipped,
+    failed: failed,
+    results: results
   };
 }
 
@@ -437,6 +541,37 @@ function purgeProgramsBefore_(ss, name, cutoff, req) {
     sheet: name, cutoff: cutoffNorm,
     removed: removed, kept: keep.length, total_rows: keep.length,
     removed_sample: removedSample, dry_run: false
+  };
+}
+
+/**
+ * Batch version of purgeProgramsBefore_: purge หลายชีทใน request/execution เดียว
+ * sheetNames = [sheetName, ...], cutoff เดียวกันใช้กับทุกชีท, req.dry_run ส่งต่อให้ทุกชีทเหมือนกัน
+ */
+function purgeProgramsBatch_(ss, sheetNames, cutoff, req) {
+  sheetNames = sheetNames || [];
+  var results = {};
+  var totalRemoved = 0;
+  var failed = [];
+
+  for (var i = 0; i < sheetNames.length; i++) {
+    var name = sheetNames[i];
+    try {
+      var res = purgeProgramsBefore_(ss, name, cutoff, req);
+      results[name] = res;
+      totalRemoved += res.removed;
+    } catch (err) {
+      results[name] = { error: String(err && err.stack ? err.stack : err) };
+      failed.push(name);
+    }
+  }
+
+  return {
+    sheets: sheetNames.length,
+    cutoff: cutoff,
+    total_removed: totalRemoved,
+    failed: failed,
+    results: results
   };
 }
 
@@ -587,9 +722,19 @@ function upsertViewStats_(ss, req) {
     sh.getRange('P:P').setNumberFormat('@');
   }
 
+  // ตรวจสอบและขยายพื้นที่ชีทหากใกล้เต็มก่อนเริ่มอ่าน/ประมวลผล
+  ensureSheetCapacity_(sh, 100, 1000);
+
   var rowsData = req.rows || (req.row ? [req.row] : []);
   if (!rowsData || rowsData.length === 0) {
-    return { updated: 0, inserted: 0, preserved: 0, total_rows: sh.getLastRow() > 1 ? sh.getLastRow() - 1 : 0 };
+    return {
+      updated: 0,
+      inserted: 0,
+      preserved: 0,
+      total_rows: sh.getLastRow() > 1 ? sh.getLastRow() - 1 : 0,
+      max_rows: sh.getMaxRows(),
+      free_rows: sh.getMaxRows() - sh.getLastRow()
+    };
   }
 
   var lastRow = sh.getLastRow();
@@ -754,6 +899,14 @@ function upsertViewStats_(ss, req) {
 
   // บันทึกกลับลง Google Sheet
   if (existingRows.length > 0) {
+    // ป้องกันกรณีแถวใหม่ทำให้ความจุชีทเกินขีดจำกัด (Coordinates out of bounds)
+    var neededRows = existingRows.length + 1; // แถวที่ 1 คือ Header
+    var curMaxRows = sh.getMaxRows();
+    if (curMaxRows < neededRows + 50) {
+      var rowsToAdd = Math.max(1000, (neededRows + 1000) - curMaxRows);
+      sh.insertRowsAfter(curMaxRows, rowsToAdd);
+    }
+
     sh.getRange(2, 1, existingRows.length, VIEW_STATS_HEADERS.length).setValues(existingRows);
     // บังคับรูปแบบข้อความ (Plain Text) สำหรับคอลัมน์ วันที่, เวลาเริ่มในผัง และ เวลาพีค
     sh.getRange(2, 1, existingRows.length, 1).setNumberFormat('@');
@@ -768,11 +921,50 @@ function upsertViewStats_(ss, req) {
     updated: updatedCount,
     inserted: insertedCount,
     preserved: preservedCount,
-    total_rows: existingRows.length
+    total_rows: existingRows.length,
+    max_rows: sh.getMaxRows(),
+    free_rows: sh.getMaxRows() - sh.getLastRow()
   };
 }
 
 /* ----------------------------- helpers ----------------------------- */
+
+/**
+ * ตรวจสอบว่าชีทมีแถวว่างเหลือเพียงพอหรือไม่ หากเหลือน้อยกว่า minFreeRows
+ * จะทำการเพิ่มแถวใหม่อัตโนมัติ (ดีฟอลต์ 1,000 แถว) ต่อท้ายชีททันที
+ * ป้องกันปัญหา Coordinates out of bounds หรือแผ่นงานเต็ม
+ */
+function ensureSheetCapacity_(sh, minFreeRows, rowsToAdd) {
+  if (!sh) return { ok: false, error: 'Sheet is null' };
+  minFreeRows = (typeof minFreeRows === 'number' && minFreeRows > 0) ? minFreeRows : 100;
+  rowsToAdd = (typeof rowsToAdd === 'number' && rowsToAdd > 0) ? rowsToAdd : 1000;
+
+  var maxRows = sh.getMaxRows();
+  var lastRow = sh.getLastRow();
+  var freeRows = maxRows - lastRow;
+
+  if (freeRows < minFreeRows) {
+    var toAdd = Math.max(rowsToAdd, minFreeRows - freeRows);
+    sh.insertRowsAfter(maxRows, toAdd);
+    return {
+      ok: true,
+      expanded: true,
+      added: toAdd,
+      previous_max: maxRows,
+      new_max: sh.getMaxRows(),
+      last_row: lastRow,
+      free_rows: sh.getMaxRows() - lastRow
+    };
+  }
+  return {
+    ok: true,
+    expanded: false,
+    added: 0,
+    max_rows: maxRows,
+    last_row: lastRow,
+    free_rows: freeRows
+  };
+}
 
 function formatCellValue_(val) {
   if (val === null || val === undefined) return '';

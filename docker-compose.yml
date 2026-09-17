@@ -13,7 +13,6 @@ services:
       - TZ=Asia/Bangkok
       # Fetcher
       - REQUEST_TIMEOUT=60
-      - APPS_SCRIPT_TIMEOUT=120
+      - APPS_SCRIPT_TIMEOUT=300
       - MAX_RETRIES=3
       - RETRY_WAIT=5
-      - SHEET_PAUSE=1
