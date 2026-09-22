@@ -1,0 +1,7 @@
+claude.md
+.env
+__pycache__/
+*.pyc
+
+dashboard-w-key.html
+webdashboard/

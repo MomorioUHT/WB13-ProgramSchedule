@@ -1,0 +1,10 @@
+services:
+  fetcher:
+    container_name: fetcher
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: wb13-fetcher:latest
+    restart: unless-stopped
+    env_file:
+      - .env
